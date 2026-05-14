@@ -9,6 +9,14 @@
 </head>
 <body>
     <div id="app">
+        <!-- Auth Loading Overlay -->
+        <div id="auth-loading" class="auth-overlay hidden">
+            <div class="loader-content">
+                <div class="spinner"></div>
+                <p>Authenticating...</p>
+            </div>
+        </div>
+
         <!-- Auth Layout Wrapper -->
         <div id="auth-wrapper" class="auth-wrapper">
             <!-- Left Side: Hero / Brand -->
@@ -74,53 +82,27 @@
                         <button type="button" class="secondary-btn" id="go-to-login">SIGN IN</button>
                     </form>
                 </div>
+
+                <!-- SIGN UP SUCCESS VIEW -->
+                <div id="signup-success-view" class="auth-view hidden-view">
+                    <div class="success-content">
+                        <div class="success-icon">✅</div>
+                        <h2>Account Created Successfully!</h2>
+                        <p class="welcome-text">Welcome to GJS File Hub!</p>
+                        <div class="instruction-box">
+                            <p>Please check your email inbox and confirm your account.</p>
+                            <p>After confirmation, come back and login with your credentials.</p>
+                        </div>
+                        <p class="footer-note">GJS File Hub - Powered by G.Srinivas</p>
+                        <button type="button" class="primary-btn" id="success-to-login">BACK TO LOGIN</button>
+                    </div>
+                </div>
                 
                 <div id="auth-error" class="error-msg"></div>
                 <div id="auth-msg" class="success-msg"></div>
             </div>
         </div>
 
-        <!-- Main View (Hidden initially) -->
-        <div id="main-container" class="main-layout hidden">
-            <header class="app-header">
-                <h2>FileHub</h2>
-                <div class="header-actions">
-                    <span id="user-greeting"></span>
-                    <button id="logout-btn" class="outline-btn">Log Out</button>
-                </div>
-            </header>
-            
-            <main class="app-main">
-                <div class="dashboard-layout">
-                    <!-- Upload Section -->
-                    <div class="upload-section glass-dark" id="drop-zone">
-                        <div class="hero-image-placeholder">
-                            <div class="cloud-icon">☁️</div>
-                            <div class="files-floating">📄 🖼️ 📊</div>
-                        </div>
-                        <h3>Upload your files</h3>
-                        <p>Drag and drop your files here, or click to browse</p>
-                        <input type="file" id="file-input" style="display: none;" multiple>
-                        <button id="trigger-upload" class="primary-btn upload-btn">Select Files</button>
-                        
-                        <!-- Progress indicator -->
-                        <div id="upload-status" class="upload-status hidden">
-                            <div class="progress-bar-container">
-                                <div id="progress-bar" class="progress-bar"></div>
-                            </div>
-                            <span id="upload-text">Uploading...</span>
-                        </div>
-                    </div>
-
-                    <!-- Gallery Section -->
-                    <div class="gallery-section glass-dark">
-                        <h3>Your Files</h3>
-                        <div id="file-list" class="file-grid">
-                            <p class="empty-state" id="empty-state-msg">No files found. Upload something to see it here!</p>
-                        </div>
-                    </div>
-                </div>
-            </main>
         </div>
     </div>
 

@@ -1,8 +1,21 @@
 import { supabaseClient } from './config.js';
 
+let currentUser = null;
+
+// Page Detection
+const IS_DASHBOARD = window.location.pathname.includes('dashboard.html');
+const IS_INDEX = !IS_DASHBOARD;
+
 // DOM Elements
 const authWrapper = document.getElementById('auth-wrapper');
 const mainContainer = document.getElementById('main-container');
+const authLoading = document.getElementById('auth-loading');
+
+// Immediately check for auth tokens in URL (Supabase redirect)
+if (IS_INDEX && (window.location.hash || window.location.search.includes('code='))) {
+    if (authLoading) authLoading.classList.remove('hidden');
+    if (authWrapper) authWrapper.classList.add('hidden');
+}
 
 // Auth Toggles
 const toggleLoginBtn = document.getElementById('toggle-login');
@@ -12,6 +25,8 @@ const signupView = document.getElementById('signup-view');
 
 const goToSignup = document.getElementById('go-to-signup');
 const goToLogin = document.getElementById('go-to-login');
+const signupSuccessView = document.getElementById('signup-success-view');
+const successToLogin = document.getElementById('success-to-login');
 
 // Forms
 const loginForm = document.getElementById('login-form');
@@ -42,125 +57,227 @@ function showLoginView() {
 function showSignupView() {
     signupView.classList.remove('hidden-view');
     loginView.classList.add('hidden-view');
+    signupSuccessView.classList.add('hidden-view');
     toggleSignupBtn.classList.add('active');
     toggleLoginBtn.classList.remove('active');
     clearFeedback();
 }
 
-function clearFeedback() {
-    authError.textContent = '';
-    authMsg.textContent = '';
+function showSuccessView() {
+    signupView.classList.add('hidden-view');
+    loginView.classList.add('hidden-view');
+    signupSuccessView.classList.remove('hidden-view');
+    clearFeedback();
 }
 
-toggleLoginBtn.addEventListener('click', showLoginView);
-toggleSignupBtn.addEventListener('click', showSignupView);
-goToSignup.addEventListener('click', showSignupView);
-goToLogin.addEventListener('click', showLoginView);
+function clearFeedback() {
+    if (authError) authError.textContent = '';
+    if (authMsg) authMsg.textContent = '';
+}
+
+if (toggleLoginBtn) toggleLoginBtn.addEventListener('click', showLoginView);
+if (toggleSignupBtn) toggleSignupBtn.addEventListener('click', showSignupView);
+if (goToSignup) goToSignup.addEventListener('click', showSignupView);
+if (goToLogin) goToLogin.addEventListener('click', showLoginView);
+if (successToLogin) successToLogin.addEventListener('click', showLoginView);
 
 // Check active session on load
 async function checkUser() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
-        showMainApp(session.user);
+        if (IS_INDEX) {
+            if (authLoading) authLoading.classList.remove('hidden');
+            window.location.replace('dashboard.html');
+        } else {
+            showMainApp(session.user);
+        }
     } else {
-        showAuthScreen();
+        // If we were waiting for a token but it's not there, hide loader
+        if (authLoading) authLoading.classList.add('hidden');
+        if (IS_DASHBOARD) {
+            window.location.replace('index.html');
+        } else {
+            showAuthScreen();
+        }
     }
 }
 
 // Setup Auth Listener
 supabaseClient.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN') {
-        showMainApp(session.user);
+        if (IS_INDEX) {
+            window.location.replace('dashboard.html');
+        } else {
+            showMainApp(session.user);
+        }
     } else if (event === 'SIGNED_OUT') {
-        showAuthScreen();
+        if (IS_DASHBOARD) {
+            window.location.replace('index.html');
+        } else {
+            showAuthScreen();
+        }
     }
 });
 
 // Handle Login Form Submission
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearFeedback();
-    const btn = loginForm.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.textContent = 'Processing...';
+if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearFeedback();
+        const btn = loginForm.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
 
-    try {
-        const { error } = await supabaseClient.auth.signInWithPassword({ 
-            email: loginEmail.value, 
-            password: loginPassword.value 
-        });
-        if (error) throw error;
-        // Successful login handled by listener
-    } catch (err) {
-        authError.textContent = err.message;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'SIGN IN';
-    }
-});
+        try {
+            const { error } = await supabaseClient.auth.signInWithPassword({ 
+                email: loginEmail.value, 
+                password: loginPassword.value 
+            });
+            if (error) throw error;
+            // Successful login handled by listener
+        } catch (err) {
+            authError.textContent = err.message;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'SIGN IN';
+        }
+    });
+}
 
 // Handle Signup Form Submission
-signupForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearFeedback();
-    const btn = signupForm.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.textContent = 'Processing...';
+if (signupForm) {
+    signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearFeedback();
+        const btn = signupForm.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
 
-    try {
-        const { data, error } = await supabaseClient.auth.signUp({ 
-            email: signupEmail.value, 
-            password: signupPassword.value,
-            options: {
-                data: {
-                    full_name: signupName.value
+        try {
+            const { data, error } = await supabaseClient.auth.signUp({ 
+                email: signupEmail.value, 
+                password: signupPassword.value,
+                options: {
+                    data: {
+                        full_name: signupName.value
+                    }
                 }
-            }
-        });
-        
-        if (error) throw error;
-        
-        if (data?.session) {
-            // Auto-login succeeded (Email Confirmations are disabled in Supabase)
-            showMainApp(data.user);
-        } else if (data?.user?.identities?.length === 0) {
-            authError.textContent = 'User already exists. Please sign in instead.';
-        } else {
-            // No session means Email Confirmations are likely still enabled
-            authMsg.textContent = 'Account created! If you did not disable Email Confirmations, please check your inbox. Otherwise, switch to Login and sign in.';
-            // Switch to login view after 3 seconds so they can sign in
-            setTimeout(showLoginView, 3000);
+            });
+            
+            if (error) throw error;
+            
+            // Show success message regardless of auto-login session
+            // This ensures they see the "Confirm Email" instruction as requested
+            showSuccessView();
+        } catch (err) {
+            authError.textContent = err.message;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'CREATE ACCOUNT';
         }
-    } catch (err) {
-        authError.textContent = err.message;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'CREATE ACCOUNT';
-    }
-});
+    });
+}
 
 // Handle Logout
-logoutBtn.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-});
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+        await supabaseClient.auth.signOut();
+    });
+}
+
+// Handle Delete Account
+const deleteAccountBtn = document.getElementById('delete-account-btn');
+const deleteAccountModal = document.getElementById('delete-account-modal');
+const modalCancelBtn = document.getElementById('modal-cancel-btn');
+const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+
+if (deleteAccountBtn) {
+    deleteAccountBtn.addEventListener('click', () => {
+        deleteAccountModal.classList.remove('hidden');
+    });
+}
+
+if (modalCancelBtn) {
+    modalCancelBtn.addEventListener('click', () => {
+        deleteAccountModal.classList.add('hidden');
+    });
+}
+
+// Close modal when clicking the backdrop
+if (deleteAccountModal) {
+    deleteAccountModal.addEventListener('click', (e) => {
+        if (e.target === deleteAccountModal) {
+            deleteAccountModal.classList.add('hidden');
+        }
+    });
+}
+
+if (modalConfirmBtn) {
+    modalConfirmBtn.addEventListener('click', async () => {
+        modalConfirmBtn.disabled = true;
+        modalConfirmBtn.textContent = 'Deleting…';
+
+        try {
+            // 1. Delete all files belonging to this user from Supabase storage
+            if (currentUser) {
+                const { data: fileList } = await supabaseClient.storage
+                    .from('upload system')
+                    .list(currentUser.id, { limit: 1000 });
+
+                if (fileList && fileList.length > 0) {
+                    const paths = fileList
+                        .filter(f => f.name !== '.emptyFolderPlaceholder')
+                        .map(f => `${currentUser.id}/${f.name}`);
+
+                    if (paths.length > 0) {
+                        await supabaseClient.storage
+                            .from('upload system')
+                            .remove(paths);
+                    }
+                }
+            }
+
+            // 2. Delete the user account via the admin/auth API
+            const { error } = await supabaseClient.rpc('delete_user');
+            if (error) {
+                // Fallback: use auth.admin deleteUser if RPC not available
+                // For client-side, Supabase v2 exposes auth.admin only server-side.
+                // We sign out and let the server handle it, or use a workaround.
+                throw error;
+            }
+
+            // 3. Clear session and redirect
+            localStorage.clear();
+            await supabaseClient.auth.signOut();
+            window.location.replace('index.html');
+
+        } catch (err) {
+            console.error('Delete account error:', err);
+            alert(`Could not delete account: ${err.message}`);
+            modalConfirmBtn.disabled = false;
+            modalConfirmBtn.textContent = 'Yes Delete';
+            deleteAccountModal.classList.add('hidden');
+        }
+    });
+}
 
 // Screen toggles
 function showAuthScreen() {
-    authWrapper.classList.remove('hidden');
-    mainContainer.classList.add('hidden');
+    if (authWrapper) authWrapper.classList.remove('hidden');
+    if (mainContainer) mainContainer.classList.add('hidden');
 }
 
 function showMainApp(user) {
-    authWrapper.classList.add('hidden');
-    mainContainer.classList.remove('hidden');
+    if (authWrapper) authWrapper.classList.add('hidden');
+    if (mainContainer) mainContainer.classList.remove('hidden');
     
     // Attempt to get name or use email
     const name = user.user_metadata?.full_name || user.email;
-    userGreeting.textContent = `Hello, ${name}`;
+    if (userGreeting) userGreeting.textContent = `Hello, ${name}`;
     
     // Set current user and fetch their files
     currentUser = user;
-    fetchFiles();
+    if (IS_DASHBOARD) fetchFiles();
 }
 
 // Init
@@ -176,39 +293,39 @@ const uploadStatus = document.getElementById('upload-status');
 const progressBar = document.getElementById('progress-bar');
 const uploadText = document.getElementById('upload-text');
 
-let currentUser = null;
+if (IS_DASHBOARD) {
+    // Drag and drop events
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
 
-// Drag and drop events
-['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, preventDefaults, false);
-});
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
-function preventDefaults(e) {
-    e.preventDefault();
-    e.stopPropagation();
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+    });
+
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    }
+
+    triggerUploadBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', function() {
+        handleFiles(this.files);
+    });
 }
-
-['dragenter', 'dragover'].forEach(eventName => {
-    dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
-});
-
-['dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
-});
-
-dropZone.addEventListener('drop', handleDrop, false);
-
-function handleDrop(e) {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    handleFiles(files);
-}
-
-triggerUploadBtn.addEventListener('click', () => fileInput.click());
-
-fileInput.addEventListener('change', function() {
-    handleFiles(this.files);
-});
 
 async function handleFiles(files) {
     if (!files || files.length === 0) return;
