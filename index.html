@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FileHub - File Upload System</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Auth Layout Wrapper -->
+        <div id="auth-wrapper" class="auth-wrapper">
+            <!-- Left Side: Hero / Brand -->
+            <div class="auth-hero">
+                <h1>Welcome to FileHub</h1>
+                <p>Access your cloud and recent files seamlessly.</p>
+                <div class="hero-image-placeholder">
+                    <div class="cloud-icon">☁️</div>
+                    <div class="files-floating">📄 🖼️ 📊</div>
+                </div>
+            </div>
+
+            <!-- Right Side: Auth Card -->
+            <div class="auth-card glass">
+                <div class="auth-toggle">
+                    <button id="toggle-login" class="active">Login</button>
+                    <button id="toggle-signup">Sign Up</button>
+                </div>
+
+                <!-- LOGIN VIEW -->
+                <div id="login-view" class="auth-view active-view">
+                    <h2>Login to Your Account</h2>
+                    <form id="login-form">
+                        <div class="input-container">
+                            <label for="login-email">Email Address</label>
+                            <input type="email" id="login-email" required placeholder="user@email.com">
+                        </div>
+                        <div class="input-container">
+                            <label for="login-password">Password</label>
+                            <input type="password" id="login-password" required placeholder="••••••••">
+                        </div>
+                        <div class="forgot-password">
+                            <a href="#">Forgot Password?</a>
+                        </div>
+                        <button type="submit" class="primary-btn">SIGN IN</button>
+                        
+                        <div class="divider"><span>OR</span></div>
+                        
+                        <button type="button" class="secondary-btn" id="go-to-signup">CREATE ACCOUNT</button>
+                    </form>
+                </div>
+
+                <!-- SIGN UP VIEW -->
+                <div id="signup-view" class="auth-view hidden-view">
+                    <h2>Create Your Account</h2>
+                    <form id="signup-form">
+                        <div class="input-container">
+                            <label for="signup-name">Full Name</label>
+                            <input type="text" id="signup-name" required placeholder="John Doe">
+                        </div>
+                        <div class="input-container">
+                            <label for="signup-email">Email Address</label>
+                            <input type="email" id="signup-email" required placeholder="user@email.com">
+                        </div>
+                        <div class="input-container">
+                            <label for="signup-password">Password</label>
+                            <input type="password" id="signup-password" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="primary-btn">CREATE ACCOUNT</button>
+                        
+                        <div class="divider"><span>OR</span></div>
+                        
+                        <button type="button" class="secondary-btn" id="go-to-login">SIGN IN</button>
+                    </form>
+                </div>
+                
+                <div id="auth-error" class="error-msg"></div>
+                <div id="auth-msg" class="success-msg"></div>
+            </div>
+        </div>
+
+        <!-- Main View (Hidden initially) -->
+        <div id="main-container" class="main-layout hidden">
+            <header class="app-header">
+                <h2>FileHub</h2>
+                <div class="header-actions">
+                    <span id="user-greeting"></span>
+                    <button id="logout-btn" class="outline-btn">Log Out</button>
+                </div>
+            </header>
+            
+            <main class="app-main">
+                <div class="dashboard-layout">
+                    <!-- Upload Section -->
+                    <div class="upload-section glass-dark" id="drop-zone">
+                        <div class="hero-image-placeholder">
+                            <div class="cloud-icon">☁️</div>
+                            <div class="files-floating">📄 🖼️ 📊</div>
+                        </div>
+                        <h3>Upload your files</h3>
+                        <p>Drag and drop your files here, or click to browse</p>
+                        <input type="file" id="file-input" style="display: none;" multiple>
+                        <button id="trigger-upload" class="primary-btn upload-btn">Select Files</button>
+                        
+                        <!-- Progress indicator -->
+                        <div id="upload-status" class="upload-status hidden">
+                            <div class="progress-bar-container">
+                                <div id="progress-bar" class="progress-bar"></div>
+                            </div>
+                            <span id="upload-text">Uploading...</span>
+                        </div>
+                    </div>
+
+                    <!-- Gallery Section -->
+                    <div class="gallery-section glass-dark">
+                        <h3>Your Files</h3>
+                        <div id="file-list" class="file-grid">
+                            <p class="empty-state" id="empty-state-msg">No files found. Upload something to see it here!</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+</body>
+</html>
