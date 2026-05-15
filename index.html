@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileHub - File Upload System</title>
+    <title>GJS File Hub - Secure Cloud Storage</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div id="app">
@@ -17,83 +19,124 @@
             </div>
         </div>
 
-        <!-- Auth Layout Wrapper -->
-        <div id="auth-wrapper" class="auth-wrapper">
-            <!-- Left Side: Hero / Brand -->
-            <div class="auth-hero">
-                <h1>Welcome to FileHub</h1>
-                <p>Access your cloud and recent files seamlessly.</p>
-                <div class="hero-image-placeholder">
-                    <div class="cloud-icon">☁️</div>
-                    <div class="files-floating">📄 🖼️ 📊</div>
-                </div>
-            </div>
-
-            <!-- Right Side: Auth Card -->
+        <div class="auth-container">
+            <!-- Glass Card -->
             <div class="auth-card glass">
-                <div class="auth-toggle">
-                    <button id="toggle-login" class="active">Login</button>
-                    <button id="toggle-signup">Sign Up</button>
+                <div class="brand-section">
+                    <img src="logo.png" alt="GJS File Hub Logo" class="main-logo">
+                    <h1 class="brand-name">GJS FILE HUB</h1>
                 </div>
 
                 <!-- LOGIN VIEW -->
                 <div id="login-view" class="auth-view active-view">
-                    <h2>Login to Your Account</h2>
+                    <div class="view-header">
+                        <h2>WELCOME BACK</h2>
+                        <p>Please sign in to access your secure files.</p>
+                    </div>
+                    
                     <form id="login-form">
-                        <div class="input-container">
+                        <div class="input-group">
                             <label for="login-email">Email Address</label>
-                            <input type="email" id="login-email" required placeholder="user@email.com">
+                            <div class="input-wrapper">
+                                <i data-lucide="mail" class="input-icon"></i>
+                                <input type="email" id="login-email" required placeholder="Enter your email">
+                            </div>
                         </div>
-                        <div class="input-container">
+
+                        <div class="input-group">
                             <label for="login-password">Password</label>
-                            <input type="password" id="login-password" required placeholder="••••••••">
+                            <div class="input-wrapper">
+                                <i data-lucide="lock" class="input-icon"></i>
+                                <input type="password" id="login-password" required placeholder="Enter your password">
+                                <button type="button" class="password-toggle" id="toggle-password-visibility">
+                                    <i data-lucide="eye" class="toggle-icon"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="forgot-password">
-                            <a href="forgot-password.html">Forgot Password?</a>
+
+                        <div class="form-options">
+                            <label class="remember-me">
+                                <input type="checkbox" id="remember-me">
+                                <span>Remember Me</span>
+                            </label>
+                            <a href="forgot-password.html" class="forgot-link">Forgot Password?</a>
                         </div>
-                        <button type="submit" class="primary-btn">SIGN IN</button>
+
+                        <button type="submit" class="primary-btn sign-in-btn">
+                            SIGN IN <i data-lucide="arrow-right"></i>
+                        </button>
                         
-                        <div class="divider"><span>OR</span></div>
+                        <div class="social-auth">
+                            <div class="divider"><span>OR</span></div>
+                            <div class="social-icons">
+                                <button type="button" class="social-btn" title="Sign in with Google">
+                                    <img src="https://www.google.com/favicon.ico" alt="Google">
+                                </button>
+                                <button type="button" class="social-btn" title="Sign in with Microsoft">
+                                    <img src="https://www.microsoft.com/favicon.ico" alt="Microsoft">
+                                </button>
+                                <button type="button" class="social-btn" title="Sign in with GitHub">
+                                    <img src="https://github.githubassets.com/favicons/favicon.svg" alt="GitHub">
+                                </button>
+                            </div>
+                        </div>
                         
-                        <button type="button" class="secondary-btn" id="go-to-signup">CREATE ACCOUNT</button>
+                        <p class="toggle-text">
+                            Don't have an account? <a href="#" id="go-to-signup">Sign Up Now</a>
+                        </p>
                     </form>
                 </div>
 
                 <!-- SIGN UP VIEW -->
                 <div id="signup-view" class="auth-view hidden-view">
-                    <h2>Create Your Account</h2>
+                    <div class="view-header">
+                        <h2>CREATE ACCOUNT</h2>
+                        <p>Join GJS File Hub to secure your documents.</p>
+                    </div>
+
                     <form id="signup-form">
-                        <div class="input-container">
+                        <div class="input-group">
                             <label for="signup-name">Full Name</label>
-                            <input type="text" id="signup-name" required placeholder="John Doe">
+                            <div class="input-wrapper">
+                                <i data-lucide="user" class="input-icon"></i>
+                                <input type="text" id="signup-name" required placeholder="Enter your name">
+                            </div>
                         </div>
-                        <div class="input-container">
+
+                        <div class="input-group">
                             <label for="signup-email">Email Address</label>
-                            <input type="email" id="signup-email" required placeholder="user@email.com">
+                            <div class="input-wrapper">
+                                <i data-lucide="mail" class="input-icon"></i>
+                                <input type="email" id="signup-email" required placeholder="Enter your email">
+                            </div>
                         </div>
-                        <div class="input-container">
+
+                        <div class="input-group">
                             <label for="signup-password">Password</label>
-                            <input type="password" id="signup-password" required placeholder="••••••••">
+                            <div class="input-wrapper">
+                                <i data-lucide="lock" class="input-icon"></i>
+                                <input type="password" id="signup-password" required placeholder="Create a password">
+                            </div>
                         </div>
-                        <button type="submit" class="primary-btn">CREATE ACCOUNT</button>
+
+                        <button type="submit" class="primary-btn sign-up-btn">
+                            CREATE ACCOUNT <i data-lucide="user-plus"></i>
+                        </button>
                         
-                        <div class="divider"><span>OR</span></div>
-                        
-                        <button type="button" class="secondary-btn" id="go-to-login">SIGN IN</button>
+                        <p class="toggle-text">
+                            Already have an account? <a href="#" id="go-to-login">Sign In</a>
+                        </p>
                     </form>
                 </div>
 
                 <!-- SIGN UP SUCCESS VIEW -->
                 <div id="signup-success-view" class="auth-view hidden-view">
                     <div class="success-content">
-                        <div class="success-icon">✅</div>
-                        <h2>Account Created Successfully!</h2>
-                        <p class="welcome-text">Welcome to GJS File Hub!</p>
-                        <div class="instruction-box">
-                            <p>Please check your email inbox and confirm your account.</p>
-                            <p>After confirmation, come back and login with your credentials.</p>
+                        <div class="success-icon-wrapper">
+                            <i data-lucide="check-circle" class="success-icon"></i>
                         </div>
-                        <p class="footer-note">GJS File Hub - Powered by G.Srinivas</p>
+                        <h2>Account Created!</h2>
+                        <p>Check your email inbox to confirm your account.</p>
                         <button type="button" class="primary-btn" id="success-to-login">BACK TO LOGIN</button>
                     </div>
                 </div>
@@ -101,11 +144,18 @@
                 <div id="auth-error" class="error-msg"></div>
                 <div id="auth-msg" class="success-msg"></div>
             </div>
-        </div>
 
+            <!-- Footer -->
+            <footer class="auth-footer">
+                <p>&copy; 2024 GJS File Hub. All rights reserved. | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
+            </footer>
         </div>
     </div>
 
     <script type="module" src="/app.js"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
 </body>
 </html>

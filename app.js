@@ -18,15 +18,14 @@ if (IS_INDEX && (window.location.hash || window.location.search.includes('code='
 }
 
 // Auth Toggles
-const toggleLoginBtn = document.getElementById('toggle-login');
-const toggleSignupBtn = document.getElementById('toggle-signup');
+// Auth Views & Toggles
 const loginView = document.getElementById('login-view');
 const signupView = document.getElementById('signup-view');
-
 const goToSignup = document.getElementById('go-to-signup');
 const goToLogin = document.getElementById('go-to-login');
 const signupSuccessView = document.getElementById('signup-success-view');
 const successToLogin = document.getElementById('success-to-login');
+const togglePasswordBtn = document.getElementById('toggle-password-visibility');
 
 // Forms
 const loginForm = document.getElementById('login-form');
@@ -42,35 +41,28 @@ const signupPassword = document.getElementById('signup-password');
 // Feedback
 const authError = document.getElementById('auth-error');
 const authMsg = document.getElementById('auth-msg');
-const profileIcon = document.getElementById('profile-icon');
-const settingsTrigger = document.getElementById('settings-trigger');
-const settingsDropdown = document.getElementById('settings-dropdown');
-const settingsName = document.getElementById('settings-name');
-const settingsEmail = document.getElementById('settings-email');
+const userGreeting = document.getElementById('user-greeting');
 const logoutBtn = document.getElementById('logout-btn');
 
 // Show/Hide Auth Views
 function showLoginView() {
-    loginView.classList.remove('hidden-view');
-    signupView.classList.add('hidden-view');
-    toggleLoginBtn.classList.add('active');
-    toggleSignupBtn.classList.remove('active');
+    if (loginView) loginView.classList.remove('hidden-view');
+    if (signupView) signupView.classList.add('hidden-view');
+    if (signupSuccessView) signupSuccessView.classList.add('hidden-view');
     clearFeedback();
 }
 
 function showSignupView() {
-    signupView.classList.remove('hidden-view');
-    loginView.classList.add('hidden-view');
-    signupSuccessView.classList.add('hidden-view');
-    toggleSignupBtn.classList.add('active');
-    toggleLoginBtn.classList.remove('active');
+    if (signupView) signupView.classList.remove('hidden-view');
+    if (loginView) loginView.classList.add('hidden-view');
+    if (signupSuccessView) signupSuccessView.classList.add('hidden-view');
     clearFeedback();
 }
 
 function showSuccessView() {
-    signupView.classList.add('hidden-view');
-    loginView.classList.add('hidden-view');
-    signupSuccessView.classList.remove('hidden-view');
+    if (signupView) signupView.classList.add('hidden-view');
+    if (loginView) loginView.classList.add('hidden-view');
+    if (signupSuccessView) signupSuccessView.classList.remove('hidden-view');
     clearFeedback();
 }
 
@@ -79,11 +71,22 @@ function clearFeedback() {
     if (authMsg) authMsg.textContent = '';
 }
 
-if (toggleLoginBtn) toggleLoginBtn.addEventListener('click', showLoginView);
-if (toggleSignupBtn) toggleSignupBtn.addEventListener('click', showSignupView);
-if (goToSignup) goToSignup.addEventListener('click', showSignupView);
-if (goToLogin) goToLogin.addEventListener('click', showLoginView);
+if (goToSignup) goToSignup.addEventListener('click', (e) => { e.preventDefault(); showSignupView(); });
+if (goToLogin) goToLogin.addEventListener('click', (e) => { e.preventDefault(); showLoginView(); });
 if (successToLogin) successToLogin.addEventListener('click', showLoginView);
+
+// Password Visibility Toggle
+if (togglePasswordBtn && loginPassword) {
+    togglePasswordBtn.addEventListener('click', () => {
+        const type = loginPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+        loginPassword.setAttribute('type', type);
+        const icon = togglePasswordBtn.querySelector('i');
+        if (icon) {
+            icon.setAttribute('data-lucide', type === 'password' ? 'eye' : 'eye-off');
+            lucide.createIcons();
+        }
+    });
+}
 
 // Check active session on load
 async function checkUser() {
@@ -275,43 +278,13 @@ function showMainApp(user) {
     if (authWrapper) authWrapper.classList.add('hidden');
     if (mainContainer) mainContainer.classList.remove('hidden');
     
-    // Get name or use email
+    // Attempt to get name or use email
     const name = user.user_metadata?.full_name || user.email;
-    const email = user.email;
-
-    // Set profile icon (first letter)
-    if (profileIcon) {
-        profileIcon.textContent = name.charAt(0).toUpperCase();
-    }
-
-    // Populate settings menu
-    if (settingsName) settingsName.textContent = name;
-    if (settingsEmail) settingsEmail.textContent = email;
+    if (userGreeting) userGreeting.textContent = `Hello, ${name}`;
     
     // Set current user and fetch their files
     currentUser = user;
     if (IS_DASHBOARD) fetchFiles();
-}
-
-// Toggle Settings Dropdown
-if (settingsTrigger) {
-    settingsTrigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        settingsDropdown.classList.toggle('hidden');
-    });
-}
-
-// Close dropdown when clicking elsewhere
-document.addEventListener('click', () => {
-    if (settingsDropdown && !settingsDropdown.classList.contains('hidden')) {
-        settingsDropdown.classList.add('hidden');
-    }
-});
-
-if (settingsDropdown) {
-    settingsDropdown.addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
 }
 
 // Init
