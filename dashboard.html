@@ -12,18 +12,32 @@
         <!-- Main View -->
         <div id="main-container" class="main-layout">
             <header class="app-header">
-                <h2>FileHub</h2>
-                <div class="header-actions">
-                    <span id="user-greeting"></span>
-                    <button id="delete-account-btn" class="danger-btn">Delete Account</button>
-                    <button id="logout-btn" class="outline-btn">Log Out</button>
+                <h1 class="brand-name">GJS FILEHUB</h1>
+                <div class="header-right">
+                    <div id="profile-icon" class="profile-circle">?</div>
+                    <div id="settings-trigger" class="settings-icon">⚙️</div>
+                    
+                    <!-- Settings Dropdown -->
+                    <div id="settings-dropdown" class="settings-menu hidden">
+                        <div class="user-info">
+                            <p id="settings-name" class="user-name">Loading...</p>
+                            <p id="settings-email" class="user-email">Loading...</p>
+                        </div>
+                        <div class="menu-divider"></div>
+                        <button id="logout-btn" class="menu-item">
+                            <span class="icon">🚪</span> Log Out
+                        </button>
+                        <button id="delete-account-btn" class="menu-item danger">
+                            <span class="icon">🗑️</span> Delete Account
+                        </button>
+                    </div>
                 </div>
             </header>
             
             <main class="app-main">
-                <div class="dashboard-layout">
-                    <!-- Upload Section -->
-                    <div class="upload-section glass-dark" id="drop-zone">
+                <!-- Upload Section -->
+                <section class="screen-section upload-full" id="drop-zone">
+                    <div class="section-content">
                         <div class="hero-image-placeholder">
                             <div class="cloud-icon">☁️</div>
                             <div class="files-floating">📄 🖼️ 📊</div>
@@ -41,15 +55,17 @@
                             <span id="upload-text">Uploading...</span>
                         </div>
                     </div>
+                </section>
 
-                    <!-- Gallery Section -->
-                    <div class="gallery-section glass-dark">
+                <!-- Gallery Section -->
+                <section class="screen-section gallery-full">
+                    <div class="section-content">
                         <h3>Your Files</h3>
                         <div id="file-list" class="file-grid">
                             <p class="empty-state" id="empty-state-msg">No files found. Upload something to see it here!</p>
                         </div>
                     </div>
-                </div>
+                </section>
             </main>
         </div>
     </div>

@@ -42,7 +42,11 @@ const signupPassword = document.getElementById('signup-password');
 // Feedback
 const authError = document.getElementById('auth-error');
 const authMsg = document.getElementById('auth-msg');
-const userGreeting = document.getElementById('user-greeting');
+const profileIcon = document.getElementById('profile-icon');
+const settingsTrigger = document.getElementById('settings-trigger');
+const settingsDropdown = document.getElementById('settings-dropdown');
+const settingsName = document.getElementById('settings-name');
+const settingsEmail = document.getElementById('settings-email');
 const logoutBtn = document.getElementById('logout-btn');
 
 // Show/Hide Auth Views
@@ -271,13 +275,43 @@ function showMainApp(user) {
     if (authWrapper) authWrapper.classList.add('hidden');
     if (mainContainer) mainContainer.classList.remove('hidden');
     
-    // Attempt to get name or use email
+    // Get name or use email
     const name = user.user_metadata?.full_name || user.email;
-    if (userGreeting) userGreeting.textContent = `Hello, ${name}`;
+    const email = user.email;
+
+    // Set profile icon (first letter)
+    if (profileIcon) {
+        profileIcon.textContent = name.charAt(0).toUpperCase();
+    }
+
+    // Populate settings menu
+    if (settingsName) settingsName.textContent = name;
+    if (settingsEmail) settingsEmail.textContent = email;
     
     // Set current user and fetch their files
     currentUser = user;
     if (IS_DASHBOARD) fetchFiles();
+}
+
+// Toggle Settings Dropdown
+if (settingsTrigger) {
+    settingsTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        settingsDropdown.classList.toggle('hidden');
+    });
+}
+
+// Close dropdown when clicking elsewhere
+document.addEventListener('click', () => {
+    if (settingsDropdown && !settingsDropdown.classList.contains('hidden')) {
+        settingsDropdown.classList.add('hidden');
+    }
+});
+
+if (settingsDropdown) {
+    settingsDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
 }
 
 // Init
