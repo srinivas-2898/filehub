@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://file-upload-system-27636.web.app/sitemap.xml

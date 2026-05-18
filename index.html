@@ -3,15 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GJS File Hub - Secure Cloud Storage</title>
+    <meta name="google-site-verification" content="yD1kNXhIDp2lb-s7DCoCJ3ek-anbWevHCJwc0TLP8h8" />
+    <title>GJS File Hub</title>
+    <meta name="description" content="GJS File Hub is a secure file upload and file management platform." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://file-upload-system-27636.web.app/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://file-upload-system-27636.web.app/" />
+    <meta property="og:title" content="GJS File Hub" />
+    <meta property="og:description" content="GJS File Hub is a secure file upload and file management platform." />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://file-upload-system-27636.web.app/" />
+    <meta name="twitter:title" content="GJS File Hub" />
+    <meta name="twitter:description" content="GJS File Hub is a secure file upload and file management platform." />
+
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Lucide Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark-mode');
+            }
+        })();
+    </script>
     <div id="app">
-        <!-- Auth Loading Overlay -->
         <div id="auth-loading" class="auth-overlay hidden">
             <div class="loader-content">
                 <div class="spinner"></div>
@@ -19,21 +42,52 @@
             </div>
         </div>
 
-        <div class="auth-container">
-            <!-- Glass Card -->
-            <div class="auth-card glass">
-                <div class="brand-section">
-                    <img src="logo.png" alt="GJS File Hub Logo" class="main-logo">
-                    <h1 class="brand-name">GJS FILE HUB</h1>
+    <div class="auth-wrapper page-animate">
+        <div class="auth-card glass-panel" id="auth-card-container">
+            
+            <!-- MOBILE ONLY: Illustration -->
+            <div class="mobile-illustration hide-on-desktop">
+                <div class="mobile-brand-logo">FileHub</div>
+                <div class="cloud-illustration">
+                    <i data-lucide="cloud" class="main-cloud"></i>
+                    <i data-lucide="file-text" class="float-icon float-1"></i>
+                    <i data-lucide="image" class="float-icon float-2"></i>
+                    <i data-lucide="music" class="float-icon float-3"></i>
+                </div>
+                <div class="cloud-providers">
+                    <i data-lucide="triangle"></i>
+                    <i data-lucide="box"></i>
+                    <i data-lucide="cloud"></i>
+                </div>
+                <div class="mobile-welcome-text">
+                    <h2 class="welcome-title">Welcome to FileHub</h2>
+                    <p class="subtitle">Access your cloud and recent files seamlessly.</p>
+                </div>
+            </div>
+
+            <!-- DESKTOP ONLY: Brand Section -->
+            <div class="brand-section hide-on-mobile">
+                <div class="brand-logo">
+                    <i data-lucide="cloud"></i>
+                </div>
+                <h1 class="brand-name">GJS File Hub</h1>
+            </div>
+
+            <div class="mobile-form-container">
+                <!-- MOBILE ONLY: Tabs -->
+                <div class="auth-tabs hide-on-desktop">
+                    <button class="tab-btn active" id="tab-login">Login</button>
+                    <button class="tab-btn" id="tab-signup">Sign Up</button>
                 </div>
 
-                <!-- LOGIN VIEW -->
-                <div id="login-view" class="auth-view active-view">
-                    <div class="view-header">
-                        <h2>WELCOME BACK</h2>
-                        <p>Please sign in to access your secure files.</p>
-                    </div>
-                    
+            <!-- LOGIN VIEW -->
+            <div id="login-view" class="auth-view active-view">
+                <div class="view-header hide-on-mobile">
+                    <p class="subtitle">Sign in to access your secure files.</p>
+                </div>
+                <div class="view-header hide-on-desktop">
+                    <h3 class="mobile-form-title">Login to Your Account</h3>
+                </div>
                     <form id="login-form">
                         <div class="input-group">
                             <label for="login-email">Email Address</label>
@@ -57,41 +111,41 @@
                         <div class="form-options">
                             <label class="remember-me">
                                 <input type="checkbox" id="remember-me">
-                                <span>Remember Me</span>
+                                <span>Remember me</span>
                             </label>
                             <a href="forgot-password.html" class="forgot-link">Forgot Password?</a>
                         </div>
 
-                        <button type="submit" class="primary-btn sign-in-btn">
-                            SIGN IN <i data-lucide="arrow-right"></i>
+                        <button type="submit" class="primary-btn sign-in-btn btn-anim">
+                            <span class="hide-on-mobile">SIGN IN</span>
+                            <span class="hide-on-desktop">Continue with Email</span> 
+                            <i data-lucide="arrow-right" class="hide-on-mobile"></i>
                         </button>
                         
                         <div class="social-auth">
-                            <div class="divider"><span>OR</span></div>
-                            <div class="social-icons">
-                                <button type="button" class="social-btn" title="Sign in with Google">
-                                    <img src="https://www.google.com/favicon.ico" alt="Google">
-                                </button>
-                                <button type="button" class="social-btn" title="Sign in with Microsoft">
-                                    <img src="https://www.microsoft.com/favicon.ico" alt="Microsoft">
-                                </button>
-                                <button type="button" class="social-btn" title="Sign in with GitHub">
-                                    <img src="https://github.githubassets.com/favicons/favicon.svg" alt="GitHub">
-                                </button>
+                            <div class="divider">
+                                <span class="hide-on-mobile">OR</span>
+                                <span class="hide-on-desktop">or continue with</span>
                             </div>
+                            <button type="button" class="google-btn btn-anim" id="google-login-btn">
+                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo">
+                                <span>Continue with Google</span>
+                            </button>
                         </div>
                         
                         <p class="toggle-text">
-                            Don't have an account? <a href="#" id="go-to-signup">Sign Up Now</a>
+                            Don't have an account? <a href="#" id="go-to-signup" class="blue-link">Sign Up</a>
                         </p>
                     </form>
                 </div>
 
                 <!-- SIGN UP VIEW -->
                 <div id="signup-view" class="auth-view hidden-view">
-                    <div class="view-header">
-                        <h2>CREATE ACCOUNT</h2>
-                        <p>Join GJS File Hub to secure your documents.</p>
+                    <div class="view-header hide-on-mobile">
+                        <p class="subtitle">Join FileHub to secure your documents.</p>
+                    </div>
+                    <div class="view-header hide-on-desktop">
+                        <h3 class="mobile-form-title">Create Account</h3>
                     </div>
 
                     <form id="signup-form">
@@ -119,12 +173,14 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="primary-btn sign-up-btn">
-                            CREATE ACCOUNT <i data-lucide="user-plus"></i>
+                        <button type="submit" class="primary-btn sign-up-btn btn-anim">
+                            <span class="hide-on-mobile">CREATE ACCOUNT</span>
+                            <span class="hide-on-desktop">Continue with Email</span> 
+                            <i data-lucide="user-plus" class="hide-on-mobile"></i>
                         </button>
                         
                         <p class="toggle-text">
-                            Already have an account? <a href="#" id="go-to-login">Sign In</a>
+                            Already have an account? <a href="#" id="go-to-login" class="blue-link">Sign In</a>
                         </p>
                     </form>
                 </div>
@@ -135,26 +191,22 @@
                         <div class="success-icon-wrapper">
                             <i data-lucide="check-circle" class="success-icon"></i>
                         </div>
-                        <h2>Account Created!</h2>
-                        <p>Check your email inbox to confirm your account.</p>
-                        <button type="button" class="primary-btn" id="success-to-login">BACK TO LOGIN</button>
+                        <h2 class="welcome-text">Account Created!</h2>
+                        <div class="instruction-box">
+                            <p>Check your email inbox to confirm your account.</p>
+                        </div>
+                        <button type="button" class="primary-btn btn-anim" id="success-to-login">BACK TO LOGIN</button>
                     </div>
                 </div>
                 
                 <div id="auth-error" class="error-msg"></div>
                 <div id="auth-msg" class="success-msg"></div>
-            </div>
-
-            <!-- Footer -->
-            <footer class="auth-footer">
-                <p>&copy; 2024 GJS File Hub. All rights reserved. | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
-            </footer>
+            </div> <!-- End mobile-form-container -->
         </div>
     </div>
 
     <script type="module" src="/app.js"></script>
     <script>
-        // Initialize Lucide icons
         lucide.createIcons();
     </script>
 </body>

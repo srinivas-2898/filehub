@@ -5,56 +5,661 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - FileHub</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark-mode');
+            }
+        })();
+    </script>
     <div id="app">
-        <!-- Main View -->
-        <div id="main-container" class="main-layout">
-            <header class="app-header">
-                <h2>FileHub</h2>
+        <!-- ═══ DESKTOP LEFT SIDEBAR (hidden on mobile) ═══ -->
+        <aside class="desktop-sidebar glass-panel desktop-only">
+            <div class="sidebar-brand">
+                <i data-lucide="cloud" class="brand-icon"></i>
+                <h2 class="brand-text">FileHub</h2>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <button class="sidebar-btn nav-btn active" data-target="page-upload">
+                    <i data-lucide="home"></i>
+                    <span>Home</span>
+                </button>
+                <button class="sidebar-btn nav-btn" data-target="page-files">
+                    <i data-lucide="folder-open"></i>
+                    <span>View Files</span>
+                </button>
+                <button class="sidebar-btn nav-btn" data-target="page-recent">
+                    <i data-lucide="clock"></i>
+                    <span>Recent Files</span>
+                </button>
+                <button class="sidebar-btn nav-btn" data-target="page-profile">
+                    <i data-lucide="settings"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+        </aside>
+
+        <div id="main-container" class="main-layout page-animate">
+
+            <!-- ═══ DESKTOP HEADER (hidden on mobile) ═══ -->
+            <header class="app-header glass-panel desktop-only">
+                <h2 class="brand-text desktop-page-title">Dashboard</h2>
+                <nav class="desktop-nav" style="display: none !important;">
+                    <button class="nav-btn active" data-target="page-upload">Home</button>
+                    <button class="nav-btn" data-target="page-files">Files</button>
+                    <button class="nav-btn" data-target="page-profile">Profile</button>
+                </nav>
                 <div class="header-actions">
-                    <span id="user-greeting"></span>
-                    <button id="delete-account-btn" class="danger-btn">Delete Account</button>
-                    <button id="logout-btn" class="outline-btn">Log Out</button>
+                    <div class="header-user">
+                        <img id="header-avatar" src="https://via.placeholder.com/32" alt="Avatar" class="header-avatar-small">
+                        <span id="user-greeting"></span>
+                    </div>
+                    <button id="theme-toggle-btn" class="icon-btn outline-btn" title="Toggle Theme"><i data-lucide="moon"></i></button>
+                    <button id="logout-btn" class="icon-btn outline-btn" title="Log Out"><i data-lucide="log-out"></i></button>
                 </div>
             </header>
-            
+
+            <!-- ═══ MOBILE HEADER (hidden on desktop) ═══ -->
+            <div class="m-header mobile-only">
+                <div class="m-header-left">
+                    <div class="m-logo-circle">
+                        <i data-lucide="cloud"></i>
+                    </div>
+                    <span class="m-brand-text">FileHub</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="m-theme-toggle-btn" class="icon-btn outline-btn" style="width: 38px; height: 38px; border-radius: 50%;" title="Toggle Theme">
+                        <i data-lucide="moon" style="width: 18px; height: 18px;"></i>
+                    </button>
+                    <img id="mobile-header-avatar" src="https://via.placeholder.com/40" alt="Profile" class="m-avatar-circle">
+                </div>
+            </div>
+
+            <!-- ═══ MOBILE GREETING (hidden on desktop) ═══ -->
+            <div class="m-greeting-bar mobile-only">
+                <h1 id="mobile-greeting-text" class="m-greeting-title">Welcome, User!</h1>
+            </div>
+
+            <!-- ═══ MOBILE BOTTOM NAV — 4 tabs (hidden on desktop) ═══ -->
+            <nav class="mobile-bottom-nav glass-panel mobile-only">
+                <button class="nav-item active" data-target="page-upload" title="Home">
+                    <i data-lucide="home"></i>
+                    <span>Home</span>
+                </button>
+                <button class="nav-item" data-target="page-files" title="Files">
+                    <i data-lucide="files"></i>
+                    <span>Files</span>
+                </button>
+                <button class="nav-item" data-target="page-recent" title="Recent">
+                    <i data-lucide="clock"></i>
+                    <span>Recent</span>
+                </button>
+                <button class="nav-item" data-target="page-profile" title="Settings">
+                    <i data-lucide="settings"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
             <main class="app-main">
                 <div class="dashboard-layout">
-                    <!-- Upload Section -->
-                    <div class="upload-section glass-dark" id="drop-zone">
-                        <div class="hero-image-placeholder">
-                            <div class="cloud-icon">☁️</div>
-                            <div class="files-floating">📄 🖼️ 📊</div>
-                        </div>
-                        <h3>Upload your files</h3>
-                        <p>Drag and drop your files here, or click to browse</p>
-                        <input type="file" id="file-input" style="display: none;" multiple>
-                        <button id="trigger-upload" class="primary-btn upload-btn">Select Files</button>
-                        
-                        <!-- Progress indicator -->
-                        <div id="upload-status" class="upload-status hidden">
-                            <div class="progress-bar-container">
-                                <div id="progress-bar" class="progress-bar"></div>
-                            </div>
-                            <span id="upload-text">Uploading...</span>
-                        </div>
-                    </div>
 
-                    <!-- Gallery Section -->
-                    <div class="gallery-section glass-dark">
-                        <h3>Your Files</h3>
-                        <div id="file-list" class="file-grid">
-                            <p class="empty-state" id="empty-state-msg">No files found. Upload something to see it here!</p>
+                    <!-- ════════════════════════════════
+                         PAGE 1: HOME / UPLOAD
+                    ════════════════════════════════ -->
+                    <section id="page-upload" class="page-section active-page">
+
+                        <!-- ── MOBILE Home Content ── -->
+                        <div class="mobile-only m-home-content">
+
+                            <!-- Quick Actions 2×2 -->
+                            <div class="m-card">
+                                <h2 class="m-card-title">Quick Actions</h2>
+                                <div class="m-quick-grid">
+                                    <button class="m-action-btn" id="m-upload-trigger">
+                                        <div class="m-action-icon m-icon-pink">
+                                            <i data-lucide="upload-cloud"></i>
+                                        </div>
+                                        <span>Upload New File</span>
+                                    </button>
+                                    <button class="m-action-btn" data-target="page-files">
+                                        <div class="m-action-icon m-icon-blue">
+                                            <i data-lucide="folder-open"></i>
+                                        </div>
+                                        <span>View Files</span>
+                                    </button>
+                                    <button class="m-action-btn" data-target="page-recent">
+                                        <div class="m-action-icon m-icon-purple">
+                                            <i data-lucide="clock"></i>
+                                        </div>
+                                        <span>Recent Files</span>
+                                    </button>
+                                    <button class="m-action-btn" id="m-new-folder-btn">
+                                        <div class="m-action-icon m-icon-green">
+                                            <i data-lucide="folder-plus"></i>
+                                        </div>
+                                        <span>New Folder</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- My Cloud Storage Gauge -->
+                            <div class="m-card m-cloud-card">
+                                <h2 class="m-card-title">My Cloud</h2>
+                                <div class="m-cloud-body">
+                                    <div class="m-gauge-wrap">
+                                        <svg class="m-gauge-svg" viewBox="0 0 120 72" xmlns="http://www.w3.org/2000/svg">
+                                            <defs>
+                                                <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                    <stop offset="0%" style="stop-color:#4DB6AC"/>
+                                                    <stop offset="60%" style="stop-color:#26C6DA"/>
+                                                    <stop offset="100%" style="stop-color:#ff7043"/>
+                                                </linearGradient>
+                                            </defs>
+                                            <!-- Track -->
+                                            <path d="M14,68 A46,46 0 0,1 106,68" fill="none" stroke="#e8f5e9" stroke-width="10" stroke-linecap="round"/>
+                                            <!-- Fill — updated by JS -->
+                                            <path id="m-gauge-path" d="M14,68 A46,46 0 0,1 106,68" fill="none" stroke="url(#gaugeGrad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 145"/>
+                                        </svg>
+                                        <div class="m-gauge-label">
+                                            <span id="m-storage-pct">0%</span>
+                                        </div>
+                                    </div>
+                                    <p id="m-storage-text" class="m-storage-text">0 MB of 100 MB used</p>
+                                    <div class="m-storage-actions">
+                                        <button class="m-outline-btn">Add Storage</button>
+                                        <button class="m-outline-btn">Manage Plans</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recent Activities -->
+                            <div class="m-card">
+                                <h2 class="m-card-title">Recent Activities</h2>
+                                <div id="m-activity-list" class="m-activity-list">
+                                    <p class="m-empty-text">No recent activity</p>
+                                </div>
+                                <button class="m-explore-btn" data-target="page-files">Explore All Files</button>
+                            </div>
+
+                        </div><!-- /mobile-only -->
+
+                        <!-- Mobile upload progress (shown above content when active) -->
+                        <div id="m-upload-progress" class="m-upload-progress hidden mobile-only">
+                            <div class="m-progress-bar-bg">
+                                <div id="m-progress-bar" class="m-progress-bar-fill"></div>
+                            </div>
+                            <span id="m-upload-text">Uploading...</span>
                         </div>
-                    </div>
-                </div>
+
+                        <!-- ── DESKTOP Upload Content ── -->
+                        <div class="desktop-only desktop-home-grid">
+                            
+                            <!-- 1. Welcome / My Cloud Card -->
+                            <div class="desktop-home-card welcome-card glass-panel">
+                                <h1 class="welcome-title">Welcome, <span class="dynamic-username">User</span>!</h1>
+                                <div class="my-cloud-section">
+                                    <h3 class="card-subtitle">My Cloud</h3>
+                                    <div class="storage-gauge-container">
+                                        <div class="gauge-svg-wrapper">
+                                            <svg class="storage-gauge-svg" viewBox="0 0 120 72" xmlns="http://www.w3.org/2000/svg">
+                                                <!-- Track -->
+                                                <path d="M14,68 A46,46 0 0,1 106,68" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="8" stroke-linecap="round"/>
+                                                <!-- Fill -->
+                                                <path id="desktop-gauge-path" d="M14,68 A46,46 0 0,1 106,68" fill="none" stroke="url(#gaugeGrad)" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 145"/>
+                                            </svg>
+                                            <div class="gauge-percentage-label">
+                                                <span id="desktop-storage-pct">0%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p id="desktop-storage-text" class="storage-detail-text">0.00 MB of 100 MB used</p>
+                                    <div class="storage-btn-row">
+                                        <button class="action-outline-btn btn-teal">Add Storage</button>
+                                        <button class="action-outline-btn btn-gray">Manage Plans</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Actions Card (Quick options removed) -->
+                            <div class="desktop-home-card actions-card glass-panel">
+                                <div class="desktop-quick-grid">
+                                    <button class="quick-action-btn" id="d-upload-trigger">
+                                        <div class="quick-icon-circle bg-teal-light">
+                                            <i data-lucide="upload-cloud"></i>
+                                        </div>
+                                        <span>Upload New File</span>
+                                    </button>
+                                    <button class="quick-action-btn nav-btn" data-target="page-files">
+                                        <div class="quick-icon-circle bg-blue-light">
+                                            <i data-lucide="folder-open"></i>
+                                        </div>
+                                        <span>View Files</span>
+                                    </button>
+                                    <button class="quick-action-btn nav-btn" data-target="page-recent">
+                                        <div class="quick-icon-circle bg-purple-light">
+                                            <i data-lucide="clock"></i>
+                                        </div>
+                                        <span>Recent Files</span>
+                                    </button>
+                                    <button class="quick-action-btn" id="d-new-folder-btn">
+                                        <div class="quick-icon-circle bg-green-light">
+                                            <i data-lucide="folder-plus"></i>
+                                        </div>
+                                        <span>New Folder</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 3. Recent Activities Card -->
+                            <div class="desktop-home-card recent-activities-card glass-panel">
+                                <h3 class="card-subtitle">Recent Activities</h3>
+                                <div class="recent-activities-header">
+                                    <span>File Name (Status)</span>
+                                    <span>Status</span>
+                                </div>
+                                <div id="desktop-activity-list" class="activity-list-container">
+                                    <p class="empty-state-text">No recent uploads</p>
+                                </div>
+                                <button class="explore-all-btn nav-btn" data-target="page-files">Explore All Files</button>
+                            </div>
+
+                            <!-- 4. Service Management Card -->
+                            <div class="desktop-home-card service-card glass-panel">
+                                <h3 class="card-subtitle">Service Management</h3>
+                                <div class="service-list">
+                                    <div class="service-item">
+                                        <div class="service-info">
+                                            <i data-lucide="chrome" class="color-blue" style="color: #4285F4;"></i>
+                                            <span>Google Drive</span>
+                                        </div>
+                                        <span class="service-size">8 GB</span>
+                                    </div>
+                                    <div class="service-progress"><div class="service-bar bg-blue" style="width: 16%; background: #4285F4;"></div></div>
+
+                                    <div class="service-item">
+                                        <div class="service-info">
+                                            <i data-lucide="cloud" class="color-teal" style="color: #4DB6AC;"></i>
+                                            <span>OneDrive</span>
+                                        </div>
+                                        <span class="service-size">2 GB</span>
+                                    </div>
+                                    <div class="service-progress"><div class="service-bar bg-teal" style="width: 40%; background: #4DB6AC;"></div></div>
+
+                                    <div class="service-item">
+                                        <div class="service-info">
+                                            <i data-lucide="box" class="color-orange" style="color: #FF7043;"></i>
+                                            <span>Dropbox</span>
+                                        </div>
+                                        <span class="service-size">10 GB</span>
+                                    </div>
+                                    <div class="service-progress"><div class="service-bar bg-orange" style="width: 20%; background: #FF7043;"></div></div>
+                                </div>
+                            </div>
+
+                            <!-- 5. Usage Graph Card -->
+                            <div class="desktop-home-card graph-card glass-panel">
+                                <h3 class="card-subtitle">Usage Graph</h3>
+                                <div class="graph-container">
+                                    <svg class="bezier-graph-svg" viewBox="0 0 400 150" style="width: 100%; height: auto;">
+                                        <defs>
+                                            <linearGradient id="graphGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stop-color="rgba(77, 182, 172, 0.4)"/>
+                                                <stop offset="100%" stop-color="rgba(77, 182, 172, 0.0)"/>
+                                            </linearGradient>
+                                        </defs>
+                                        <!-- Grid lines -->
+                                        <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(0,0,0,0.04)" stroke-dasharray="4,4"/>
+                                        <line x1="0" y1="70" x2="400" y2="70" stroke="rgba(0,0,0,0.04)" stroke-dasharray="4,4"/>
+                                        <line x1="0" y1="110" x2="400" y2="110" stroke="rgba(0,0,0,0.04)" stroke-dasharray="4,4"/>
+                                        <!-- Bezier Area under the curve -->
+                                        <path d="M 0 130 C 50 120, 100 60, 150 90 C 200 110, 250 40, 300 70 C 350 90, 380 50, 400 60 L 400 130 L 0 130 Z" fill="url(#graphGrad)"/>
+                                        <!-- Bezier line -->
+                                        <path d="M 0 130 C 50 120, 100 60, 150 90 C 200 110, 250 40, 300 70 C 350 90, 380 50, 400 60" fill="none" stroke="#4DB6AC" stroke-width="3" stroke-linecap="round"/>
+                                        <!-- Dots on vertices -->
+                                        <circle cx="150" cy="90" r="4" fill="#4DB6AC"/>
+                                        <circle cx="300" cy="70" r="4" fill="#4DB6AC"/>
+                                        <circle cx="400" cy="60" r="4" fill="#4DB6AC"/>
+                                    </svg>
+                                    <div class="graph-x-labels" style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; color: #94a3b8; font-weight: 600;">
+                                        <span>Mon</span>
+                                        <span>Tue</span>
+                                        <span>Wed</span>
+                                        <span>Thu</span>
+                                        <span>Fri</span>
+                                        <span>Sat</span>
+                                        <span>Sun</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Upload status in a sleek bottom right dynamic drawer on PC -->
+                            <div id="upload-status" class="upload-status hidden glass-panel" style="position: fixed; bottom: 24px; right: 24px; z-index: 1000; padding: 16px; border-radius: 16px; width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.7); background: rgba(255,255,255,0.85); backdrop-filter: blur(10px);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span id="upload-text" style="font-size: 13px; font-weight: 700; color: #1e293b;">Uploading... 0%</span>
+                                    <i data-lucide="loader" class="spin" style="width: 16px; height: 16px; color: #4DB6AC;"></i>
+                                </div>
+                                <div class="progress-bar-container" style="width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
+                                    <div id="progress-bar" class="progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #4DB6AC, #26C6DA); transition: width 0.2s ease;"></div>
+                                </div>
+                            </div>
+
+                        </div><!-- /desktop-only -->
+
+                        <!-- Shared hidden file input (works even when parent is display:none) -->
+                        <input type="file" id="file-input" style="display:none;" multiple>
+
+                    </section>
+
+                    <!-- ════════════════════════════════
+                         PAGE 2: FILES
+                    ════════════════════════════════ -->
+                    <section id="page-files" class="page-section hidden-section">
+                        <!-- Desktop View Header -->
+                        <div class="files-header glass-panel desktop-only">
+                            <div class="files-controls-top">
+                                <div class="search-wrapper">
+                                    <i data-lucide="search"></i>
+                                    <input type="text" id="search-input" placeholder="Search files...">
+                                </div>
+                                <div class="files-stats">
+                                    <span id="total-file-count">0 files</span>
+                                </div>
+                            </div>
+                            <div class="files-controls-bottom">
+                                <div class="filter-chips">
+                                    <button class="chip active" data-filter="all">All</button>
+                                    <button class="chip" data-filter="image">Images</button>
+                                    <button class="chip" data-filter="document">Documents</button>
+                                    <button class="chip" data-filter="video">Videos</button>
+                                    <button class="chip" data-filter="other">Others</button>
+                                </div>
+                                <div class="view-sort-controls">
+                                    <select id="sort-select" class="glass-select">
+                                        <option value="newest">Newest First</option>
+                                        <option value="oldest">Oldest First</option>
+                                        <option value="name">Name (A-Z)</option>
+                                        <option value="size">Size (Largest)</option>
+                                    </select>
+                                    <div class="view-toggles desktop-only">
+                                        <button id="grid-view-btn" class="icon-btn active"><i data-lucide="grid"></i></button>
+                                        <button id="list-view-btn" class="icon-btn"><i data-lucide="list"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mobile Only Header Redesign matching exact uploaded image -->
+                        <div class="m-files-header mobile-only" style="margin-bottom: 16px;">
+                            <h2 class="m-files-title" style="text-align: center; font-size: 22px; font-weight: 800; color: #1e293b; font-family: 'Poppins', sans-serif; margin-bottom: 16px; letter-spacing: -0.5px;">FileHub Files</h2>
+                            
+                            <div class="m-search-pill-wrapper" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.8); border-radius: 30px; padding: 4px 6px 4px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 12px;">
+                                <i data-lucide="search" style="width: 18px; height: 18px; color: #64748b;"></i>
+                                <input type="text" id="m-search-input" placeholder="Search files..." style="flex: 1; border: none; background: transparent; font-size: 13px; font-family: 'Poppins', sans-serif; color: #1e293b; outline: none; padding: 6px 0;">
+                                <button class="m-filter-btn" style="width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; display: flex; align-items: center; justify-content: center; color: #64748b; cursor: pointer;">
+                                    <i data-lucide="sliders-horizontal" style="width: 18px; height: 18px;"></i>
+                                </button>
+                            </div>
+
+                            <div class="m-sort-row" style="display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin-bottom: 12px; font-family: 'Poppins', sans-serif;">
+                                <span style="font-size: 11px; font-weight: 600; color: #64748b;">Sort:</span>
+                                <select id="m-sort-select" class="m-sort-select" style="border: none; background: transparent; font-size: 11px; font-weight: 700; color: #1e293b; cursor: pointer; outline: none;">
+                                    <option value="newest">Newest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                    <option value="name">Name (A-Z)</option>
+                                    <option value="size">Size (Largest)</option>
+                                </select>
+                            </div>
+
+                            <div class="m-filter-chips-scroll" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 4px; scrollbar-width: none;">
+                                <button class="m-chip active" data-filter="all">All</button>
+                                <button class="m-chip" data-filter="image">Images</button>
+                                <button class="m-chip" data-filter="document">Docs</button>
+                                <button class="m-chip" data-filter="video">Videos</button>
+                                <button class="m-chip" data-filter="other">Others</button>
+                            </div>
+                        </div>
+
+                        <!-- Mobile Only Upload FAB -->
+                        <button id="m-upload-fab" class="mobile-only m-upload-fab" style="position: fixed; bottom: 84px; right: 20px; z-index: 150; height: 48px; padding: 0 20px; border-radius: 24px; border: none; background: linear-gradient(135deg, #4DB6AC, #26C6DA); color: #fff; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 20px rgba(77,182,172,0.4); cursor: pointer; transition: all 0.2s ease;">
+                            <i data-lucide="plus" style="width: 18px; height: 18px;"></i> Add New
+                        </button>
+
+                        <div id="bulk-action-bar" class="bulk-action-bar glass-panel hidden">
+                            <span id="selected-count">0 selected</span>
+                            <button id="bulk-delete-btn" class="danger-btn"><i data-lucide="trash-2"></i> Delete Selected</button>
+                        </div>
+
+                        <div class="gallery-section glass-panel">
+                            <!-- Folder Navigation Header -->
+                            <div id="folder-nav-header" class="hidden" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <button id="back-to-root-btn" class="icon-btn outline-btn" title="Back to Root" style="border-radius: 50%;"><i data-lucide="arrow-left"></i></button>
+                                    <h2 id="current-folder-title" style="font-size: 20px; font-weight: 700; color: var(--text-main); font-family: 'Poppins', sans-serif; margin: 0;">Folder Name</h2>
+                                </div>
+                                <!-- Desktop Folder Upload Options button -->
+                                <button id="d-folder-upload-trigger" class="desktop-only" style="height: 40px; padding: 0 20px; border-radius: 20px; border: none; background: linear-gradient(135deg, #4DB6AC, #26C6DA); color: #fff; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(77,182,172,0.25); cursor: pointer; transition: all 0.2s ease;">
+                                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Add files
+                                </button>
+                            </div>
+
+                            <div id="folders-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                                <!-- Folders injected here -->
+                            </div>
+                            
+                            <hr id="folders-divider" style="display: none; border: 0; border-top: 1px solid var(--glass-border); margin: 0 0 20px 0;" />
+
+                            <div id="file-list" class="file-grid">
+                                <p class="empty-state" id="empty-state-msg">No files yet. Upload your first file!</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ════════════════════════════════
+                         PAGE 3: RECENT (mobile new tab)
+                    ════════════════════════════════ -->
+                    <section id="page-recent" class="page-section hidden-section">
+                        <div class="m-card" style="margin-bottom:12px;">
+                            <h2 class="m-card-title">Recent Files <span class="m-subtitle-tag">Last 7 days</span></h2>
+                        </div>
+                        <div class="gallery-section glass-panel">
+                            <div id="recent-file-list-full" class="file-grid">
+                                <p class="empty-state">No recent files in the last 7 days.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ════════════════════════════════
+                         PAGE 4: PROFILE / SETTINGS
+                    ════════════════════════════════ -->
+                    <section id="page-profile" class="page-section hidden-section">
+                        <div class="profile-layout card glass-panel">
+                            <div class="profile-header" style="margin-bottom: 24px;">
+                                <h3 style="font-size: 24px; font-weight: 800; color: #1e293b;">Settings</h3>
+                                <p style="font-size: 13px; color: #64748b;">Manage profile metadata & account security</p>
+                            </div>
+
+                            <div class="profile-left-panel">
+                                <div class="profile-stats-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px;">
+                                    <div class="stat-card glass-panel" style="padding: 12px 6px; text-align: center; border-radius: 16px;">
+                                        <i data-lucide="file" style="width: 20px; height: 20px; color: #4DB6AC; margin-bottom: 6px;"></i>
+                                        <h4 style="font-size: 10px; font-weight: 600; color: #64748b; margin-bottom: 3px;">Files</h4>
+                                        <p id="profile-total-files" style="font-size: 14px; font-weight: 800; color: #1e293b;">0</p>
+                                    </div>
+                                    <div class="stat-card glass-panel" style="padding: 12px 6px; text-align: center; border-radius: 16px;">
+                                        <i data-lucide="hard-drive" style="width: 20px; height: 20px; color: #4DB6AC; margin-bottom: 6px;"></i>
+                                        <h4 style="font-size: 10px; font-weight: 600; color: #64748b; margin-bottom: 3px;">Storage</h4>
+                                        <p id="profile-total-storage" style="font-size: 14px; font-weight: 800; color: #1e293b; white-space: nowrap;">0 MB</p>
+                                    </div>
+                                    <div class="stat-card glass-panel" style="padding: 12px 6px; text-align: center; border-radius: 16px;">
+                                        <i data-lucide="calendar" style="width: 20px; height: 20px; color: #4DB6AC; margin-bottom: 6px;"></i>
+                                        <h4 style="font-size: 10px; font-weight: 600; color: #64748b; margin-bottom: 3px;">Joined</h4>
+                                        <p id="profile-member-since" style="font-size: 12px; font-weight: 800; color: #1e293b;">-</p>
+                                    </div>
+                                </div>
+
+                                <!-- Dedicated Settings Storage Visualizer Widget -->
+                                <div class="settings-storage-card glass-panel" style="margin-bottom: 24px; padding: 16px; border-radius: 20px; background: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.8);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span style="font-size: 13px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;"><i data-lucide="hard-drive" style="width: 16px; height: 16px; color: #4DB6AC;"></i> Cloud Storage</span>
+                                        <span id="profile-storage-pct-text" style="font-size: 13px; font-weight: 800; color: #4DB6AC;">0%</span>
+                                    </div>
+                                    <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 8px;">
+                                        <div id="profile-storage-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #4DB6AC, #26C6DA); border-radius: 4px; transition: width 0.3s ease;"></div>
+                                    </div>
+                                    <div id="profile-storage-detail-text" style="font-size: 11px; font-weight: 500; color: #64748b;">0.00 MB of 100 MB used</div>
+                                </div>
+                            </div>
+
+                            <div class="profile-content profile-right-panel">
+                                <div class="avatar-section" style="margin-bottom: 24px; display: flex; justify-content: center;">
+                                    <div class="avatar-container" style="position: relative; width: 130px; height: 130px; margin: 0 auto; flex-shrink: 0;">
+                                        <img id="profile-avatar-preview" src="https://via.placeholder.com/150" alt="Avatar" class="profile-avatar-large" style="width: 130px; height: 130px; border-radius: 50%; object-fit: cover; border: 3px solid #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.12);">
+                                        <label for="avatar-input" class="avatar-upload-label" style="position: absolute; bottom: 4px; right: 4px; left: auto; transform: none; width: 38px; height: 38px; border-radius: 50%; background: #4DB6AC; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15); border: 2.5px solid #fff; margin: 0; padding: 0;">
+                                            <span style="font-size: 16px;">📸</span>
+                                        </label>
+                                        <input type="file" id="avatar-input" style="display: none;" accept="image/*">
+                                    </div>
+                                </div>
+
+                                <form id="profile-form" class="profile-form">
+                                    <div class="input-group">
+                                        <label for="profile-email">Email Address (Read-only)</label>
+                                        <div class="input-wrapper">
+                                            <input type="email" id="profile-email" disabled>
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="profile-username">Username</label>
+                                        <div class="input-wrapper">
+                                            <input type="text" id="profile-username" placeholder="Choose a unique username">
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="profile-fullname">Full Name</label>
+                                        <div class="input-wrapper">
+                                            <input type="text" id="profile-fullname" placeholder="Enter your full name">
+                                        </div>
+                                    </div>
+                                    <div class="profile-actions-row">
+                                        <button type="submit" id="save-profile-btn" class="primary-btn">Save Profile</button>
+                                        <button type="button" id="change-password-btn" class="outline-btn">Change Password</button>
+                                        <button type="button" id="mobile-logout-btn" class="logout-btn-m">Log Out</button>
+                                        <button type="button" id="delete-account-btn" class="danger-btn">Delete Account</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ════════════════════════════════
+                         PAGE 5: MOBILE FOLDERS
+                    ════════════════════════════════ -->
+                    <section id="page-m-folders" class="page-section hidden-section mobile-only">
+                        <!-- Header -->
+                        <div class="m-folders-header" style="margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 8px;">
+                                <button id="m-folders-back-btn" class="icon-btn outline-btn" style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.8); background: rgba(255,255,255,0.5);"><i data-lucide="arrow-left" style="color: #1e293b;"></i></button>
+                                <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin: 0; letter-spacing: -0.5px; font-family: 'Poppins', sans-serif;">FOLDERS</h2>
+                            </div>
+                            <h3 id="m-folders-greeting" style="font-size: 14px; font-weight: 600; color: #64748b; margin-left: 56px; font-family: 'Poppins', sans-serif;">Welcome, User!</h3>
+                        </div>
+
+                        <!-- Tabs -->
+                        <div class="m-tabs-container glass-panel" style="display: flex; background: rgba(255,255,255,0.7); border-radius: 16px; padding: 4px; margin-bottom: 24px;">
+                            <button id="m-tab-create" class="m-tab-btn active" style="flex: 1; padding: 12px; border: none; background: transparent; border-radius: 12px; font-weight: 700; font-size: 14px; color: #64748b; transition: all 0.3s ease; font-family: 'Poppins', sans-serif;">Create Folder</button>
+                            <button id="m-tab-view" class="m-tab-btn" style="flex: 1; padding: 12px; border: none; background: transparent; border-radius: 12px; font-weight: 700; font-size: 14px; color: #64748b; transition: all 0.3s ease; font-family: 'Poppins', sans-serif;">View Folders</button>
+                        </div>
+
+                        <!-- Create Folder Tab Content -->
+                        <div id="m-create-folder-view">
+                            <div class="m-search-pill-wrapper" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.8); border-radius: 30px; padding: 4px 6px 4px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 24px;">
+                                <i data-lucide="search" style="width: 18px; height: 18px; color: #64748b;"></i>
+                                <input type="text" id="m-folder-search-input" placeholder="Search all folders..." style="flex: 1; border: none; background: transparent; font-size: 13px; font-family: 'Poppins', sans-serif; color: #1e293b; outline: none; padding: 10px 0;">
+                            </div>
+
+                            <div class="m-upload-zone glass-panel" style="background: rgba(255,255,255,0.5); border: 2px dashed rgba(77, 182, 172, 0.4); border-radius: 24px; padding: 40px 20px; text-align: center; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center;">
+                                <div style="display: inline-flex; justify-content: center; align-items: center; width: 64px; height: 64px; background: rgba(77, 182, 172, 0.1); border-radius: 50%; color: #4DB6AC; margin-bottom: 16px;">
+                                    <i data-lucide="folder-plus" style="width: 32px; height: 32px;"></i>
+                                </div>
+                                <h3 style="font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 8px; font-family: 'Poppins', sans-serif;">Create a New Folder</h3>
+                                <p style="font-size: 13px; color: #64748b; font-weight: 500; font-family: 'Poppins', sans-serif;">Organize your files easily</p>
+                            </div>
+
+                            <button id="m-create-folder-trigger" style="width: 100%; height: 56px; background: linear-gradient(135deg, #4DB6AC, #26C6DA); color: white; border: none; border-radius: 16px; font-size: 16px; font-weight: 700; font-family: 'Poppins', sans-serif; box-shadow: 0 8px 20px rgba(77,182,172,0.3); display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 32px; cursor: pointer;">
+                                <i data-lucide="plus" style="width: 20px; height: 20px;"></i>
+                                Create Folder
+                            </button>
+
+                            <div class="m-recent-folders-section">
+                                <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 16px; font-family: 'Poppins', sans-serif;">Recent Folders</h3>
+                                <div id="m-recent-folders-list" style="display: flex; flex-direction: column; gap: 12px;">
+                                    <!-- Populated dynamically -->
+                                    <p class="empty-state-text" style="text-align: center; color: #64748b; font-size: 13px;">No recent folders</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- View Folders Tab Content -->
+                        <div id="m-view-folders-view" class="hidden">
+                            <div id="m-all-folders-grid" style="display: flex; flex-direction: column; gap: 12px;">
+                                <!-- Populated dynamically -->
+                                <p class="empty-state-text" style="text-align: center; color: #64748b; font-size: 13px;">No folders found</p>
+                            </div>
+                        </div>
+                    </section>
+
+                </div><!-- /dashboard-layout -->
             </main>
+        </div><!-- /main-container -->
+    </div><!-- /app -->
+
+    <!-- Folder Modal (Create/Rename) -->
+    <div id="folder-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 id="folder-modal-title" class="modal-title">New Folder</h3>
+            <input type="text" id="folder-name-input" placeholder="Folder Name" style="width: 100%; padding: 10px; margin-bottom: 20px; border-radius: 8px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--input-text); font-family: 'Poppins', sans-serif;">
+            <div class="modal-actions">
+                <button id="folder-cancel-btn" class="modal-btn modal-btn-cancel">Cancel</button>
+                <button id="folder-save-btn" class="modal-btn" style="background: #4DB6AC; color: white; border: none;">Create</button>
+            </div>
         </div>
     </div>
 
-    <!-- Delete Account Confirmation Modal -->
+    <!-- Folder Delete Confirmation Modal -->
+    <div id="folder-delete-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 class="modal-title">Delete Folder</h3>
+            <p class="modal-message">Delete this folder? Files inside will move back to main section.</p>
+            <div class="modal-actions">
+                <button id="folder-del-cancel-btn" class="modal-btn modal-btn-cancel">Cancel</button>
+                <button id="folder-del-confirm-btn" class="modal-btn modal-btn-danger">Yes Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Folder Selection Modal -->
+    <div id="upload-folder-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 class="modal-title">Upload Destination</h3>
+            <p class="modal-message" style="margin-bottom: 10px;">Select folder to upload files into:</p>
+            <select id="upload-folder-select" class="glass-select" style="width: 100%; margin-bottom: 20px;">
+                <option value="">No Folder (root)</option>
+            </select>
+            <div class="modal-actions">
+                <button id="upload-folder-cancel-btn" class="modal-btn modal-btn-cancel">Cancel</button>
+                <button id="upload-folder-confirm-btn" class="modal-btn" style="background: #4DB6AC; color: white; border: none;">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Account Modal -->
     <div id="delete-account-modal" class="modal-overlay hidden">
         <div class="modal-box">
             <div class="modal-icon">⚠️</div>
@@ -66,7 +671,128 @@
             </div>
         </div>
     </div>
+    <!-- QR Code Modal -->
+    <div id="qr-modal-overlay" class="qr-modal-overlay hidden">
+        <div class="qr-modal-box">
+            <button class="qr-modal-close" id="qr-modal-close">&times;</button>
+            <div class="qr-modal-content">
+                <div id="qr-code-container" class="qr-code-container"></div>
+                <p class="qr-file-name" id="qr-file-name"></p>
+                <p class="qr-scan-text">Scan to download</p>
+                <button class="qr-download-btn" id="qr-download-btn">
+                    <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+                    Download QR Code
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="realtime-toast" class="toast hidden">
+        <span class="toast-icon">✨</span>
+        <span class="toast-msg">File list updated</span>
+    </div>
+
+    <!-- Success checkmark overlay for mobile folder creation -->
+    <div id="m-success-overlay" class="modal-overlay hidden" style="background: rgba(255,255,255,0.95); z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
+        <div class="checkmark-circle">
+            <svg class="checkmark-svg" viewBox="0 0 52 52">
+                <path d="M14 27 l10 10 l20 -20"/>
+            </svg>
+        </div>
+        <h3 style="font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 700; color: #1e293b;">Folder created successfully!</h3>
+    </div>
+
+    <!-- Mobile Upload Options Modal (Bottom Sheet Style) -->
+    <div id="m-upload-options-modal" class="modal-overlay hidden" style="z-index: 2100; display: flex; align-items: flex-end; background: rgba(0, 0, 0, 0.5);">
+        <div style="width: 100%; background: #ffffff; border-radius: 24px 24px 0 0; padding: 24px 24px 32px 24px; font-family: 'Poppins', sans-serif; box-shadow: 0 -8px 32px rgba(0,0,0,0.15); animation: mSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
+            <div style="width: 40px; height: 4px; background: #cbd5e1; border-radius: 2px; margin: 0 auto 20px auto;"></div>
+            <h3 style="font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 20px;">Add files to folder</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+                <!-- Option 1: Upload from device -->
+                <button id="m-opt-upload-device" style="width: 100%; height: 64px; border: 1px solid rgba(77,182,172,0.3); background: rgba(77,182,172,0.05); border-radius: 16px; display: flex; align-items: center; gap: 16px; padding: 0 16px; cursor: pointer; text-align: left;">
+                    <div style="width: 38px; height: 38px; background: rgba(77,182,172,0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #4DB6AC; flex-shrink: 0;">
+                        <i data-lucide="smartphone" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div>
+                        <h4 style="font-size: 14px; font-weight: 700; color: #1e293b; margin: 0;">Upload from Device</h4>
+                        <p style="font-size: 11px; color: #64748b; margin: 0;">Select a new file from your device</p>
+                    </div>
+                </button>
+                
+                <!-- Option 2: Import from application -->
+                <button id="m-opt-import-app" style="width: 100%; height: 64px; border: 1px solid rgba(59,130,246,0.3); background: rgba(59,130,246,0.05); border-radius: 16px; display: flex; align-items: center; gap: 16px; padding: 0 16px; cursor: pointer; text-align: left;">
+                    <div style="width: 38px; height: 38px; background: rgba(59,130,246,0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #3b82f6; flex-shrink: 0;">
+                        <i data-lucide="files" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div>
+                        <h4 style="font-size: 14px; font-weight: 700; color: #1e293b; margin: 0;">Import from Existing Files</h4>
+                        <p style="font-size: 11px; color: #64748b; margin: 0;">Choose from files already in FileHub</p>
+                    </div>
+                </button>
+            </div>
+            
+            <button id="m-opt-cancel" style="width: 100%; height: 50px; background: #f1f5f9; color: #64748b; border: none; border-radius: 16px; font-size: 14px; font-weight: 700; cursor: pointer;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Desktop Upload Options Modal -->
+    <div id="d-upload-options-modal" class="modal-overlay hidden" style="z-index: 2100; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.5); padding: 16px;">
+        <div class="glass-panel" style="width: 100%; max-width: 420px; background: #ffffff; border-radius: 24px; padding: 32px; font-family: 'Poppins', sans-serif; box-shadow: 0 20px 40px rgba(0,0,0,0.15); display: flex; flex-direction: column;">
+            <h3 style="font-size: 18px; font-weight: 800; color: #1e293b; margin: 0 0 8px 0; text-align: center;">Add files to folder</h3>
+            <p style="font-size: 12px; color: #64748b; margin: 0 0 24px 0; text-align: center;">Choose how you want to add files to this folder:</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 28px;">
+                <!-- Option 1: Upload from device -->
+                <button id="d-opt-upload-device" style="width: 100%; height: 72px; border: 1px solid rgba(77,182,172,0.3); background: rgba(77,182,172,0.03); border-radius: 16px; display: flex; align-items: center; gap: 16px; padding: 0 20px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                    <div style="width: 44px; height: 44px; background: rgba(77,182,172,0.12); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #4DB6AC; flex-shrink: 0;">
+                        <i data-lucide="upload" style="width: 22px; height: 22px;"></i>
+                    </div>
+                    <div>
+                        <h4 style="font-size: 14px; font-weight: 700; color: #1e293b; margin: 0;">Upload from Device</h4>
+                        <p style="font-size: 11px; color: #64748b; margin: 2px 0 0 0;">Upload new files directly from your computer</p>
+                    </div>
+                </button>
+                
+                <!-- Option 2: Import from application -->
+                <button id="d-opt-import-app" style="width: 100%; height: 72px; border: 1px solid rgba(59,130,246,0.3); background: rgba(59,130,246,0.03); border-radius: 16px; display: flex; align-items: center; gap: 16px; padding: 0 20px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                    <div style="width: 44px; height: 44px; background: rgba(59,130,246,0.12); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #3b82f6; flex-shrink: 0;">
+                        <i data-lucide="copy" style="width: 22px; height: 22px;"></i>
+                    </div>
+                    <div>
+                        <h4 style="font-size: 14px; font-weight: 700; color: #1e293b; margin: 0;">Import from Existing Files</h4>
+                        <p style="font-size: 11px; color: #64748b; margin: 2px 0 0 0;">Create a copy of files already uploaded in FileHub</p>
+                    </div>
+                </button>
+            </div>
+            
+            <button id="d-opt-cancel" style="width: 100%; height: 50px; background: #f1f5f9; color: #64748b; border: none; border-radius: 16px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Mobile Import Files Modal -->
+    <div id="m-import-files-modal" class="modal-overlay hidden" style="z-index: 2200; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.5); padding: 16px;">
+        <div class="glass-panel" style="width: 100%; max-width: 400px; max-height: 80vh; background: #ffffff; border-radius: 24px; padding: 24px; font-family: 'Poppins', sans-serif; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
+            <h3 style="font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">Import Existing Files</h3>
+            <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">Select files to add to this folder:</p>
+            
+            <!-- List wrapper -->
+            <div id="m-import-files-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; max-height: 40vh; padding-right: 4px;">
+                <!-- Dynamically populated -->
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+                <button id="m-import-cancel-btn" style="flex: 1; height: 50px; background: #f1f5f9; color: #64748b; border: none; border-radius: 16px; font-size: 14px; font-weight: 700; cursor: pointer;">Cancel</button>
+                <button id="m-import-confirm-btn" style="flex: 1; height: 50px; background: linear-gradient(135deg, #4DB6AC, #26C6DA); color: white; border: none; border-radius: 16px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(77,182,172,0.3);">Import (<span id="m-import-count">0</span>)</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
 </body>
 </html>

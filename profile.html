@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - FileHub</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <div id="main-container" class="main-layout">
+            <header class="app-header">
+                <h2>FileHub</h2>
+                <div class="header-actions">
+                    <button id="back-to-dashboard" class="outline-btn">Back to Dashboard</button>
+                    <button id="logout-btn" class="outline-btn">Log Out</button>
+                </div>
+            </header>
+            
+            <main class="app-main">
+                <div class="profile-layout card glass-dark">
+                    <div class="profile-header">
+                        <h3>Your Profile</h3>
+                        <p>Manage your account settings and profile picture</p>
+                    </div>
+
+                    <div class="profile-content">
+                        <div class="avatar-section">
+                            <div class="avatar-container">
+                                <img id="profile-avatar-preview" src="https://via.placeholder.com/150" alt="Avatar" class="profile-avatar-large">
+                                <label for="avatar-input" class="avatar-upload-label">
+                                    <span>📸 Change Photo</span>
+                                </label>
+                                <input type="file" id="avatar-input" style="display: none;" accept="image/*">
+                            </div>
+                        </div>
+
+                        <form id="profile-form" class="profile-form">
+                            <div class="input-group">
+                                <label for="profile-email">Email Address (Read-only)</label>
+                                <div class="input-wrapper">
+                                    <input type="email" id="profile-email" disabled>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="profile-username">Username</label>
+                                <div class="input-wrapper">
+                                    <input type="text" id="profile-username" placeholder="Choose a unique username">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="profile-fullname">Full Name</label>
+                                <div class="input-wrapper">
+                                    <input type="text" id="profile-fullname" placeholder="Enter your full name">
+                                </div>
+                            </div>
+
+                            <div class="profile-actions">
+                                <button type="submit" id="save-profile-btn" class="primary-btn">Save Profile</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="profile-status" class="status-msg hidden"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Realtime Notification Toast (Reused) -->
+    <div id="realtime-toast" class="toast hidden">
+        <span class="toast-icon">✨</span>
+        <span class="toast-msg">Profile updated!</span>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+</body>
+</html>
