@@ -9,6 +9,11 @@ window.currentFilter = 'all';
 window.currentSort = 'newest';
 window.searchQuery = '';
 window.selectedFiles = new Set();
+window.selectModeActive = false;
+window.currentFilteredFiles = [];
+window.undoTimeoutId = null;
+window.undoFileId = null;
+window.hasPurged = false;
 window.isListView = false;
 window.folders = [];
 window.currentFolderId = null;
@@ -601,6 +606,7 @@ function setupSPA() {
                 'page-upload': 'Dashboard',
                 'page-files': 'My Files',
                 'page-recent': 'Recent Files',
+                'page-trash': 'Trash Bin',
                 'page-profile': 'Account Settings'
             };
             const pageTitleEl = document.querySelector('.desktop-page-title');
@@ -610,6 +616,8 @@ function setupSPA() {
 
             if (targetId === 'page-files') {
                 renderAllFiles();
+            } else if (targetId === 'page-trash') {
+                renderTrashFiles();
             }
         });
     });
@@ -810,6 +818,61 @@ function setupFileControls() {
     const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
     if (bulkDeleteBtn) {
         bulkDeleteBtn.addEventListener('click', window.bulkDeleteFiles);
+    }
+
+    // Select mode triggers
+    document.querySelectorAll('.select-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (typeof window.toggleSelectMode === 'function') {
+                window.toggleSelectMode();
+            }
+        });
+    });
+
+    // Bulk action cancel button
+    const cancelBtn = document.getElementById('bulk-cancel-btn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            if (window.selectModeActive && typeof window.toggleSelectMode === 'function') {
+                window.toggleSelectMode();
+            }
+        });
+    }
+
+    // Select All Checkbox
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            if (isChecked) {
+                window.currentFilteredFiles.forEach(f => window.selectedFiles.add(f.id));
+            } else {
+                window.currentFilteredFiles.forEach(f => window.selectedFiles.delete(f.id));
+            }
+            toggleBulkActionBar();
+            renderAllFiles();
+        });
+    }
+
+    // Deselect All button
+    const deselectAllBtn = document.getElementById('deselect-all-btn');
+    if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', () => {
+            window.selectedFiles.clear();
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            toggleBulkActionBar();
+            renderAllFiles();
+        });
+    }
+
+    // Empty Trash button
+    const emptyTrashBtn = document.getElementById('empty-trash-btn');
+    if (emptyTrashBtn) {
+        emptyTrashBtn.addEventListener('click', () => {
+            if (typeof window.emptyTrash === 'function') {
+                window.emptyTrash();
+            }
+        });
     }
 }
 
@@ -1305,18 +1368,73 @@ async function uploadFileToSupabase(file, finalName, folderId = null) {
         if (error) throw error;
 
         // Save metadata to database with user's optional custom name
-        const { error: dbError } = await supabaseClient
-            .from('Files')
-            .insert([{
+        const existingFile = window.allFiles.find(f => 
+            f.file_name === displayName && 
+            (f.folder_id || null) === (folderId || null) && 
+            !f.is_deleted
+        );
+
+        if (existingFile) {
+            const versionKey = ('version_number' in existingFile) ? 'version_number' : 'version';
+            const currentVer = existingFile[versionKey] || 1;
+
+            // 1. Save old version to file_versions table
+            const { error: verErr } = await supabaseClient
+                .from('file_versions')
+                .insert([{
+                    file_id: existingFile.id,
+                    user_id: existingFile.user_id,
+                    version_number: currentVer,
+                    file_path: existingFile.file_path,
+                    file_size: existingFile.file_size
+                }]);
+
+            if (verErr) throw verErr;
+
+            // 2. Prune old versions (keep max 10 total: current + 9 history)
+            await pruneFileVersions(existingFile.id);
+
+            // 3. Update files table with new version and incremented version count
+            const updateObj = {
+                file_size: file.size,
+                file_type: file.type || 'application/octet-stream',
+                file_path: filePath,
+                created_at: new Date()
+            };
+            updateObj[versionKey] = currentVer + 1;
+
+            const { error: dbUpdateErr } = await supabaseClient
+                .from('Files')
+                .update(updateObj)
+                .eq('id', existingFile.id);
+
+            if (dbUpdateErr) throw dbUpdateErr;
+
+        } else {
+            // Symmetrical insert for brand new file, starting at Version 1
+            const sample = window.allFiles[0];
+            const hasVerNum = sample && ('version_number' in sample);
+            const insertObj = {
                 user_id: currentUser.id,
                 file_name: displayName,
                 file_size: file.size,
                 file_type: file.type || 'application/octet-stream',
                 file_path: filePath,
                 folder_id: folderId
-            }]);
+            };
+            
+            if (hasVerNum) {
+                insertObj.version_number = 1;
+            } else {
+                insertObj.version = 1;
+            }
 
-        if (dbError) throw dbError;
+            const { error: dbError } = await supabaseClient
+                .from('Files')
+                .insert([insertObj]);
+
+            if (dbError) throw dbError;
+        }
 
         // Finished
         progressBar.style.width = '100%';
@@ -1341,6 +1459,7 @@ async function fetchFiles() {
 
         if (folderErr && folderErr.code !== '42P01') console.error("Error fetching folders:", folderErr);
         window.folders = folderData || [];
+        localStorage.setItem('cached_folders', JSON.stringify(window.folders));
 
         const { data, error } = await supabaseClient
             .from('Files')
@@ -1351,6 +1470,11 @@ async function fetchFiles() {
         if (error) throw error;
 
         window.allFiles = data || [];
+        localStorage.setItem('cached_files', JSON.stringify(window.allFiles));
+        if (!window.hasPurged) {
+            window.hasPurged = true;
+            purgeExpiredTrash();
+        }
         calculateProfileStats();
 
         const totalCountEl = document.getElementById('total-file-count');
@@ -1446,7 +1570,7 @@ function renderMobileActivities() {
     const container = document.getElementById('m-activity-list');
     if (!container) return;
 
-    const recent = window.allFiles.slice(0, 5);
+    const recent = window.allFiles.filter(f => !f.is_deleted).slice(0, 5);
     if (!recent.length) {
         container.innerHTML = '<p class="m-empty-text">No recent activity</p>';
         return;
@@ -1501,7 +1625,7 @@ function renderDesktopActivities() {
     const container = document.getElementById('desktop-activity-list');
     if (!container) return;
 
-    const recent = window.allFiles.slice(0, 5); // Show top 5
+    const recent = window.allFiles.filter(f => !f.is_deleted).slice(0, 5); // Show top 5
     if (!recent.length) {
         container.innerHTML = '<p class="empty-state-text" style="text-align: center; color: #94a3b8; padding: 20px 0; font-size: 13px;">No recent uploads</p>';
         return;
@@ -1566,7 +1690,7 @@ function renderRecentPage() {
 
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const recentFiles = window.allFiles
-        .filter(f => new Date(f.created_at).getTime() >= sevenDaysAgo)
+        .filter(f => !f.is_deleted && new Date(f.created_at).getTime() >= sevenDaysAgo)
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     renderFileSet(recentFiles, container, false);
@@ -1666,7 +1790,7 @@ function syncMobileUploadProgress() {
 function renderRecentFiles() {
     const recentContainer = document.getElementById('recent-file-list');
     if (!recentContainer) return;
-    const recentFiles = window.allFiles.slice(0, 5);
+    const recentFiles = window.allFiles.filter(f => !f.is_deleted).slice(0, 5);
     renderFileSet(recentFiles, recentContainer, false);
 }
 
@@ -1674,12 +1798,11 @@ window.renderAllFiles = function () {
     const filesContainer = document.getElementById('file-list');
     if (!filesContainer) return;
 
-    let filtered = [...window.allFiles];
+    let filtered = window.allFiles.filter(f => !f.is_deleted);
+    window.currentFilteredFiles = filtered;
 
     // Folder Filter
-    if (window.currentFolderId) {
-        filtered = filtered.filter(f => f.folder_id === window.currentFolderId);
-    }
+    filtered = filtered.filter(f => (f.folder_id || null) === (window.currentFolderId || null));
 
     // Filter
     if (window.currentFilter && window.currentFilter !== 'all') {
@@ -1704,7 +1827,7 @@ window.renderAllFiles = function () {
     else if (window.currentSort === 'name') filtered.sort((a, b) => (a.file_name || '').localeCompare(b.file_name || ''));
     else if (window.currentSort === 'size') filtered.sort((a, b) => (b.file_size || 0) - (a.file_size || 0));
 
-    renderFileSet(filtered, filesContainer, true);
+    renderFileSet(filtered, filesContainer, window.selectModeActive);
 };
 
 function renderFileSet(files, container, showCheckboxes) {
@@ -1806,6 +1929,7 @@ function renderFileSet(files, container, showCheckboxes) {
                     <button onclick="renameFilePrompt('${file.id}', '${file.file_name.replace(/'/g, "\\'")}')" class="icon-btn" title="Rename" style="color: #d97706;"><i data-lucide="edit-3"></i></button>
                     <button onclick="showQRCode('${file.file_name.replace(/'/g, "\\'")}', '${publicUrl}')" class="icon-btn" title="QR Code" style="color: #a855f7;"><i data-lucide="qr-code"></i></button>
                     <button onclick="shareFile('${file.file_name.replace(/'/g, "\\'")}', '${publicUrl}')" class="icon-btn btn-share" title="Share"><i data-lucide="share-2"></i></button>
+                    <button onclick="openVersionHistoryModal('${file.id}')" class="icon-btn btn-history" title="Version History" style="color: #0284c7;"><i data-lucide="history"></i></button>
                     <button onclick="deleteFile('${file.id}', '${file.file_path}')" class="icon-btn btn-delete" title="Delete"><i data-lucide="trash-2"></i></button>
                 </div>
             </div>
@@ -1939,12 +2063,19 @@ window.openMobileFileDrawer = function (e, fileId, fileName, publicUrl, filePath
                 </span>
                 Rename File
             </button>
+
+            <button onclick="openVersionHistoryModal('${fileId}'); closeMobileFileDrawer();" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; cursor: pointer;">
+                <span style="width: 32px; height: 32px; border-radius: 50%; background: #e0f2fe; display: flex; align-items: center; justify-content: center; color: #0284c7;">
+                    <i data-lucide="history" style="width: 16px; height: 16px;"></i>
+                </span>
+                Version History
+            </button>
             
             <button onclick="deleteFile('${fileId}', '${filePath}'); closeMobileFileDrawer();" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #fff1f2; border: 1px solid #ffe4e6; color: #f43f5e; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; cursor: pointer;">
                 <span style="width: 32px; height: 32px; border-radius: 50%; background: #ffe4e6; display: flex; align-items: center; justify-content: center; color: #f43f5e;">
                     <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                 </span>
-                Delete Permanently
+                Delete File
             </button>
         </div>
         
@@ -1997,7 +2128,7 @@ function toggleBulkActionBar() {
 
 window.bulkDeleteFiles = async function () {
     if (window.selectedFiles.size === 0) return;
-    if (!confirm(`Are you sure you want to delete ${window.selectedFiles.size} files?`)) return;
+    if (!confirm(`Delete ${window.selectedFiles.size} files? Cannot be undone`)) return;
 
     const idsToDelete = Array.from(window.selectedFiles);
 
@@ -2028,9 +2159,13 @@ window.bulkDeleteFiles = async function () {
         }
 
         window.selectedFiles.clear();
-        toggleBulkActionBar();
-        fetchFiles();
-        showToast(`Deleted ${idsToDelete.length} files successfully!`);
+        if (window.selectModeActive && typeof window.toggleSelectMode === 'function') {
+            window.toggleSelectMode();
+        } else {
+            toggleBulkActionBar();
+            fetchFiles();
+        }
+        showToast(`${idsToDelete.length} files deleted successfully`);
     } catch (err) {
         console.error("Error bulk deleting:", err);
         alert("Failed to delete selected files.");
@@ -2040,7 +2175,8 @@ window.bulkDeleteFiles = async function () {
 window.openNewFolderModal = function () {
     window.folderActionType = 'create';
     window.editingFolderId = null;
-    document.getElementById('folder-modal-title').textContent = 'New Folder';
+    const isSub = !!window.currentFolderId;
+    document.getElementById('folder-modal-title').textContent = isSub ? 'New Sub Folder' : 'New Folder';
     document.getElementById('folder-name-input').value = '';
     document.getElementById('folder-modal').classList.remove('hidden');
     document.getElementById('folder-name-input').focus();
@@ -2066,6 +2202,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('folder-modal').classList.add('hidden');
     });
 
+    document.getElementById('subfolder-create-btn')?.addEventListener('click', () => {
+        window.openNewFolderModal();
+    });
+
+    document.getElementById('d-folder-upload-trigger')?.addEventListener('click', () => {
+        document.getElementById('file-input')?.click();
+    });
+
     document.getElementById('folder-save-btn')?.addEventListener('click', async () => {
         const name = document.getElementById('folder-name-input').value.trim();
         if (!name) return;
@@ -2076,9 +2220,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             if (window.folderActionType === 'create') {
+                const parentId = window.currentFolderId || null;
                 const { error } = await supabaseClient
                     .from('folders')
-                    .insert([{ user_id: currentUser.id, folder_name: name }]);
+                    .insert([{ 
+                        user_id: currentUser.id, 
+                        folder_name: name,
+                        parent_id: parentId
+                    }]);
                 if (error) throw error;
 
                 const isMobile = localStorage.getItem('deviceType') === 'Mobile' || window.innerWidth <= 768;
@@ -2091,7 +2240,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }, 2000);
                     }
                 } else {
-                    showToast("Folder created successfully!");
+                    showToast(parentId ? "Sub folder created successfully!" : "Folder created successfully!");
                 }
             } else if (window.folderActionType === 'rename') {
                 const { error } = await supabaseClient
@@ -2135,6 +2284,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (filesErr) throw filesErr;
 
+            // Re-parent sub-folders to root
+            const { error: subfoldersErr } = await supabaseClient
+                .from('folders')
+                .update({ parent_id: null })
+                .eq('parent_id', id);
+
+            if (subfoldersErr) throw subfoldersErr;
+
             // Delete folder
             const { error: folderErr } = await supabaseClient
                 .from('folders')
@@ -2161,45 +2318,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Back to root button
     document.getElementById('back-to-root-btn')?.addEventListener('click', () => {
-        window.currentFolderId = null;
-        renderFolders();
-        renderAllFiles();
+        window.goToFolder(null);
     });
 });
+
+function renderBreadcrumbs() {
+    const breadcrumbsContainer = document.getElementById('folder-breadcrumbs');
+    if (!breadcrumbsContainer) return;
+
+    const path = [];
+    let currentId = window.currentFolderId;
+
+    while (currentId) {
+        const folder = window.folders.find(f => f.id === currentId);
+        if (folder) {
+            path.unshift(folder);
+            currentId = folder.parent_id;
+        } else {
+            break;
+        }
+    }
+
+    let breadcrumbHtml = `<span class="breadcrumb-item" onclick="goToFolder(null)" style="color: #4DB6AC; cursor: pointer; transition: color 0.2s;">Home</span>`;
+
+    path.forEach((folder, idx) => {
+        breadcrumbHtml += `
+            <span style="color: var(--text-muted); margin: 0 4px;">&gt;</span>
+            <span class="breadcrumb-item" onclick="goToFolder('${folder.id}')" style="${idx === path.length - 1 ? 'color: var(--text-main); font-weight: 700;' : 'color: #4DB6AC; cursor: pointer;'} transition: color 0.2s;">${folder.folder_name}</span>
+        `;
+    });
+
+    breadcrumbsContainer.innerHTML = breadcrumbHtml;
+}
+
+window.goToFolder = function (folderId) {
+    window.currentFolderId = folderId === 'null' || folderId === null ? null : folderId;
+    renderAllFiles();
+    renderFolders();
+    if (window.lucide) window.lucide.createIcons();
+};
 
 window.renderFolders = function () {
     const foldersGrid = document.getElementById('folders-grid');
     const foldersDivider = document.getElementById('folders-divider');
-    const folderNavHeader = document.getElementById('folder-nav-header');
+    const subfolderCreateBtn = document.getElementById('subfolder-create-btn');
+    const folderUploadTrigger = document.getElementById('d-folder-upload-trigger');
 
     if (!foldersGrid) return;
 
+    renderBreadcrumbs();
+
     if (window.currentFolderId) {
-        // We are INSIDE a folder
+        subfolderCreateBtn?.classList.remove('hidden');
+        folderUploadTrigger?.classList.remove('hidden');
+    } else {
+        subfolderCreateBtn?.classList.add('hidden');
+        folderUploadTrigger?.classList.add('hidden');
+    }
+
+    const currentFolders = window.folders.filter(f => 
+        window.currentFolderId ? f.parent_id === window.currentFolderId : !f.parent_id
+    );
+
+    if (currentFolders.length === 0) {
+        foldersGrid.innerHTML = '';
         foldersGrid.style.display = 'none';
         if (foldersDivider) foldersDivider.style.display = 'none';
-        if (folderNavHeader) folderNavHeader.classList.remove('hidden');
-
-        const folder = window.folders.find(f => f.id === window.currentFolderId);
-        const titleEl = document.getElementById('current-folder-title');
-        if (titleEl) titleEl.textContent = folder ? folder.folder_name : 'Unknown Folder';
         return;
     }
 
-    // We are at the ROOT level
     foldersGrid.style.display = 'grid';
-    if (folderNavHeader) folderNavHeader.classList.add('hidden');
+    if (foldersDivider) foldersDivider.style.display = 'block';
     foldersGrid.innerHTML = '';
 
-    if (!window.folders || window.folders.length === 0) {
-        if (foldersDivider) foldersDivider.style.display = 'none';
-        return;
-    }
-
-    if (foldersDivider) foldersDivider.style.display = 'block';
-
-    window.folders.forEach(folder => {
-        const fileCount = window.allFiles.filter(f => f.folder_id === folder.id).length;
+    currentFolders.forEach(folder => {
+        const fileCount = window.allFiles.filter(f => f.folder_id === folder.id && !f.is_deleted).length;
 
         const card = document.createElement('div');
         card.className = 'glass-panel';
@@ -2207,7 +2400,7 @@ window.renderFolders = function () {
         card.onmouseenter = () => card.style.transform = 'translateY(-2px)';
         card.onmouseleave = () => card.style.transform = 'translateY(0)';
         card.onclick = (e) => {
-            if (e.target.closest('.icon-btn')) return; // Ignore clicks on action buttons
+            if (e.target.closest('.icon-btn')) return;
             window.currentFolderId = folder.id;
             renderAllFiles();
             renderFolders();
@@ -2215,18 +2408,18 @@ window.renderFolders = function () {
         };
 
         card.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; width: 100%;">
                 <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(250, 204, 21, 0.15); display: flex; align-items: center; justify-content: center; color: #eab308; flex-shrink: 0;">
                     <i data-lucide="folder"></i>
                 </div>
-                <div style="overflow: hidden;">
+                <div style="overflow: hidden; flex: 1;">
                     <div style="font-weight: 700; color: var(--text-main); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Poppins', sans-serif;">${folder.folder_name}</div>
-                    <div style="font-size: 12px; color: var(--text-muted); font-weight: 500;">${fileCount} files</div>
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 500;">${fileCount} files</div>
                 </div>
             </div>
-            <div style="display: flex; gap: 4px;">
-                <button onclick="openRenameFolderModal('${folder.id}', '${folder.folder_name.replace(/'/g, "\\'")}')" class="icon-btn" title="Rename" style="color: #d97706; padding: 6px;"><i data-lucide="edit-3" style="width: 16px; height: 16px;"></i></button>
-                <button onclick="openDeleteFolderModal('${folder.id}')" class="icon-btn" title="Delete" style="color: #ef4444; padding: 6px;"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
+            <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                <button onclick="openRenameFolderModal('${folder.id}', '${folder.folder_name.replace(/'/g, "\\'")}')" class="icon-btn" title="Rename" style="color: #d97706; padding: 6px;"><i data-lucide="edit-3" style="width: 15px; height: 15px;"></i></button>
+                <button onclick="openDeleteFolderModal('${folder.id}')" class="icon-btn" title="Delete" style="color: #ef4444; padding: 6px;"><i data-lucide="trash-2" style="width: 15px; height: 15px;"></i></button>
             </div>
         `;
 
@@ -2235,30 +2428,30 @@ window.renderFolders = function () {
 };
 
 window.deleteFile = async function (fileId, filePath) {
-    if (!confirm(`Are you sure you want to delete this file?`)) return;
+    if (window.undoTimeoutId) {
+        clearTimeout(window.undoTimeoutId);
+        window.undoTimeoutId = null;
+        window.undoFileId = null;
+    }
 
     try {
-        const remaining = window.allFiles.filter(f => f.file_path === filePath && f.id !== fileId);
-
-        if (remaining.length === 0) {
-            const { error: storageError } = await supabaseClient.storage
-                .from('upload system')
-                .remove([filePath]);
-            if (storageError) throw storageError;
-        }
-
-        const { error: dbError } = await supabaseClient
+        const { error } = await supabaseClient
             .from('Files')
-            .delete()
+            .update({
+                is_deleted: true,
+                deleted_at: new Date().toISOString()
+            })
             .eq('id', fileId);
 
-        if (dbError) throw dbError;
+        if (error) throw error;
 
         window.selectedFiles.delete(fileId);
-        toggleBulkActionBar();
-        fetchFiles();
+        if (typeof toggleBulkActionBar === 'function') toggleBulkActionBar();
+
+        await fetchFiles();
+        showUndoToast(fileId, "File moved to Trash");
     } catch (err) {
-        console.error("Error deleting file:", err);
+        console.error("Error soft deleting file:", err);
         alert("Failed to delete file.");
     }
 };
@@ -2567,5 +2760,702 @@ window.toggleImportFile = function(id) {
     const countSpan = document.getElementById('m-import-count');
     if (countSpan) countSpan.textContent = window.selectedImportIds.size;
 };
+
+/* --- TRASH BIN & MULTI SELECTION BUSINESS LOGIC HELPERS --- */
+window.toggleSelectMode = function () {
+    window.selectModeActive = !window.selectModeActive;
+    
+    const desktopSelectBtn = document.getElementById('desktop-select-btn');
+    const mobileSelectBtn = document.getElementById('mobile-select-btn');
+    const selectAllControls = document.getElementById('selection-header-controls');
+    
+    if (window.selectModeActive) {
+        desktopSelectBtn?.classList.add('active');
+        desktopSelectBtn?.setAttribute('style', 'padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; background: #4DB6AC !important; border: 1px solid #4DB6AC; color: white; display: flex; align-items: center; gap: 6px; transition: all 0.2s;');
+        mobileSelectBtn?.classList.add('active');
+        if (mobileSelectBtn) mobileSelectBtn.style.color = '#ef4444';
+        
+        selectAllControls?.classList.remove('hidden');
+    } else {
+        desktopSelectBtn?.classList.remove('active');
+        desktopSelectBtn?.setAttribute('style', 'padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: var(--text-main); display: flex; align-items: center; gap: 6px; transition: all 0.2s;');
+        mobileSelectBtn?.classList.remove('active');
+        if (mobileSelectBtn) mobileSelectBtn.style.color = '#4DB6AC';
+        
+        selectAllControls?.classList.add('hidden');
+        window.selectedFiles.clear();
+    }
+    
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    
+    toggleBulkActionBar();
+    renderAllFiles();
+};
+
+window.showUndoToast = function (fileId, message) {
+    const realtimeToast = document.getElementById('realtime-toast');
+    if (realtimeToast) {
+        if (window.undoTimeoutId) {
+            clearTimeout(window.undoTimeoutId);
+            window.undoTimeoutId = null;
+            window.undoFileId = null;
+        }
+
+        window.undoFileId = fileId;
+
+        const msgSpan = realtimeToast.querySelector('.toast-msg');
+        if (msgSpan) {
+            msgSpan.innerHTML = `
+                ${message}
+                <button class="toast-undo-btn" id="toast-undo-btn">Undo</button>
+            `;
+        }
+
+        realtimeToast.classList.remove('hidden');
+
+        const undoBtn = document.getElementById('toast-undo-btn');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', async () => {
+                if (window.undoFileId === fileId) {
+                    try {
+                        const { error } = await supabaseClient
+                            .from('Files')
+                            .update({
+                                is_deleted: false,
+                                deleted_at: null
+                            })
+                            .eq('id', fileId);
+
+                        if (error) throw error;
+
+                        showToast("File restored!");
+                        await fetchFiles();
+                    } catch (err) {
+                        console.error("Error restoring file:", err);
+                    }
+                }
+            });
+        }
+
+        window.undoTimeoutId = setTimeout(() => {
+            realtimeToast.classList.add('hidden');
+            if (msgSpan) msgSpan.textContent = "File list updated";
+            window.undoTimeoutId = null;
+            window.undoFileId = null;
+        }, 5000);
+    }
+};
+
+window.renderTrashFiles = function () {
+    const trashContainer = document.getElementById('trash-file-list');
+    if (!trashContainer) return;
+
+    const deletedFiles = window.allFiles.filter(f => f.is_deleted === true);
+
+    if (!deletedFiles.length) {
+        trashContainer.innerHTML = '<p class="empty-state" id="trash-empty-state-msg" style="display: block;">Your Trash Bin is empty.</p>';
+        return;
+    }
+
+    trashContainer.innerHTML = '';
+
+    deletedFiles.forEach(file => {
+        const card = document.createElement('div');
+        card.className = 'file-card glass-panel';
+
+        const sizeMb = (file.file_size / (1024 * 1024)).toFixed(2);
+        
+        const deletedAtDate = file.deleted_at ? new Date(file.deleted_at) : new Date(file.created_at);
+        const daysAgo = Math.max(0, Math.floor((Date.now() - deletedAtDate.getTime()) / (24 * 60 * 60 * 1000)));
+        const daysLabel = daysAgo === 0 ? 'Deleted today' : `Deleted ${daysAgo} day${daysAgo > 1 ? 's' : ''} ago`;
+
+        const { data: publicUrlData } = supabaseClient.storage
+            .from('upload system')
+            .getPublicUrl(file.file_path);
+
+        const publicUrl = publicUrlData.publicUrl;
+
+        const getStyle = (f) => {
+            const t = (f.file_type || '').toLowerCase();
+            const name = (f.file_name || '').toLowerCase();
+            if (t.startsWith('image/')) return { bg: 'transparent', color: '#26a69a', icon: 'image', label: 'Images' };
+            if (t.startsWith('video/')) return { bg: 'linear-gradient(135deg,#fce4ec,#f8bbd0)', color: '#c2185b', icon: 'video', label: 'Videos' };
+            if (name.endsWith('.pdf')) return { bg: 'linear-gradient(135deg,#ffebee,#ffcdd2)', color: '#d32f2f', icon: 'file-text', label: 'PDF' };
+            if (t.includes('document') || t.includes('text') || name.endsWith('.docx') || name.endsWith('.doc') || name.endsWith('.txt')) {
+                return { bg: 'linear-gradient(135deg,#ffe0b2,#ffb74d)', color: '#f57c00', icon: 'file-text', label: 'Docs' };
+            }
+            return { bg: 'linear-gradient(135deg,#f3e5f5,#e1bee7)', color: '#7b1fa2', icon: 'file', label: 'Others' };
+        };
+        const s = getStyle(file);
+
+        let mPreviewInner = '';
+        if (file.file_type?.startsWith('image/')) {
+            mPreviewInner = `<img src="${publicUrl}" alt="preview" style="width:100%; height:100%; object-fit:cover;">`;
+        } else {
+            mPreviewInner = `<i data-lucide="${s.icon}" style="width:22px; height:22px; color:${s.color};"></i>`;
+        }
+
+        let previewHtml = '';
+        if (file.file_type?.startsWith('image/')) {
+            previewHtml = `<div class="file-preview image-preview"><img src="${publicUrl}" alt="preview"></div>`;
+        } else {
+            let iconName = 'file-text';
+            if (file.file_type?.startsWith('video/')) iconName = 'video';
+            else if (file.file_name.endsWith('.pdf')) iconName = 'file-text';
+            else if (file.file_name.endsWith('.zip')) iconName = 'package';
+            previewHtml = `<div class="file-preview icon-preview"><i data-lucide="${iconName}"></i></div>`;
+        }
+
+        card.innerHTML = `
+            <!-- Desktop Layout -->
+            <div class="desktop-only" style="display: flex; align-items: center; width: 100%; gap: 15px; position: relative;">
+                ${previewHtml}
+                <div class="file-details">
+                    <div class="file-name" title="${file.file_name}">${file.file_name}</div>
+                    <div class="file-info">
+                        <span>${sizeMb} MB</span> &bull; <span style="font-weight: 700; color: #ef4444;">${daysLabel}</span>
+                    </div>
+                </div>
+                <div class="file-actions" style="display: flex; gap: 10px;">
+                    <button onclick="restoreFile('${file.id}')" class="icon-btn btn-restore" title="Restore" style="width: auto; height: 38px; padding: 0 16px; border-radius: 10px; display: flex; align-items: center; gap: 6px; font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 700;"><i data-lucide="rotate-ccw" style="width: 15px; height: 15px;"></i> Restore</button>
+                    <button onclick="permanentlyDeleteFile('${file.id}', '${file.file_path.replace(/'/g, "\\'")}')" class="icon-btn btn-perm-delete" title="Permanently Delete" style="width: auto; height: 38px; padding: 0 16px; border-radius: 10px; display: flex; align-items: center; gap: 6px; font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 700;"><i data-lucide="trash-2" style="width: 15px; height: 15px;"></i> Delete Forever</button>
+                </div>
+            </div>
+
+            <!-- Mobile Layout -->
+            <div class="mobile-only" style="display: flex; align-items: center; width: 100%; gap: 10px;">
+                <div class="m-file-preview-wrapper" style="width: 42px; height: 42px; border-radius: 10px; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: ${s.bg}; border: 1px solid rgba(255,255,255,0.5);">
+                    ${mPreviewInner}
+                </div>
+                <div class="m-file-details" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                    <div class="m-file-name" style="font-size: 12px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Poppins', sans-serif;" title="${file.file_name}">${file.file_name}</div>
+                    <div class="m-file-meta-row" style="font-size: 9.5px; font-weight: 500; color: #ef4444; font-family: 'Poppins', sans-serif; display: flex; align-items: center; gap: 4px;">
+                        <span>${daysLabel}</span>
+                        <span>&bull;</span>
+                        <span>${sizeMb} MB</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button onclick="restoreFile('${file.id}')" style="width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="rotate-ccw" style="width: 16px; height: 16px;"></i></button>
+                    <button onclick="permanentlyDeleteFile('${file.id}', '${file.file_path.replace(/'/g, "\\'")}')" style="width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(239, 68, 68, 0.1); color: #ef4444; display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
+                </div>
+            </div>
+        `;
+        trashContainer.appendChild(card);
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+};
+
+window.restoreFile = async function (fileId) {
+    try {
+        const { error } = await supabaseClient
+            .from('Files')
+            .update({
+                is_deleted: false,
+                deleted_at: null
+            })
+            .eq('id', fileId);
+
+        if (error) throw error;
+
+        showToast("File restored!");
+        await fetchFiles();
+        renderTrashFiles();
+    } catch (err) {
+        console.error("Error restoring file:", err);
+        alert("Failed to restore file.");
+    }
+};
+
+window.permanentlyDeleteFile = async function (fileId, filePath) {
+    if (!confirm("Are you sure you want to permanently delete this file? This cannot be undone.")) return;
+
+    try {
+        const remaining = window.allFiles.filter(f => f.file_path === filePath && f.id !== fileId);
+
+        if (remaining.length === 0) {
+            const { error: storageError } = await supabaseClient.storage
+                .from('upload system')
+                .remove([filePath]);
+            if (storageError) throw storageError;
+        }
+
+        const { error: dbError } = await supabaseClient
+            .from('Files')
+            .delete()
+            .eq('id', fileId);
+
+        if (dbError) throw dbError;
+
+        showToast("File permanently deleted");
+        await fetchFiles();
+        renderTrashFiles();
+    } catch (err) {
+        console.error("Error permanently deleting file:", err);
+        alert("Failed to permanently delete file.");
+    }
+};
+
+window.emptyTrash = async function () {
+    const deletedFiles = window.allFiles.filter(f => f.is_deleted === true);
+    if (deletedFiles.length === 0) {
+        alert("Your Trash Bin is already empty.");
+        return;
+    }
+
+    if (!confirm("Are you sure you want to permanently empty the Trash Bin? All items will be lost forever.")) return;
+
+    try {
+        const idsToDelete = deletedFiles.map(f => f.id);
+        const activeFiles = window.allFiles.filter(f => f.is_deleted !== true);
+        const activePaths = new Set(activeFiles.map(f => f.file_path));
+
+        const pathsToStorageRemove = Array.from(new Set(
+            deletedFiles
+                .map(f => f.file_path)
+                .filter(path => !activePaths.has(path))
+        ));
+
+        if (pathsToStorageRemove.length > 0) {
+            const { error: storageError } = await supabaseClient.storage
+                .from('upload system')
+                .remove(pathsToStorageRemove);
+            if (storageError) throw storageError;
+        }
+
+        const { error: dbError } = await supabaseClient
+            .from('Files')
+            .delete()
+            .in('id', idsToDelete);
+
+        if (dbError) throw dbError;
+
+        showToast("Trash Bin cleared successfully!");
+        await fetchFiles();
+        renderTrashFiles();
+    } catch (err) {
+        console.error("Error clearing trash:", err);
+        alert("Failed to empty Trash Bin.");
+    }
+};
+
+async function purgeExpiredTrash() {
+    if (!currentUser || !window.allFiles.length) return;
+
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const expiredFiles = window.allFiles.filter(f => f.is_deleted === true && f.deleted_at && new Date(f.deleted_at).getTime() < thirtyDaysAgo);
+
+    if (expiredFiles.length === 0) return;
+
+    console.log(`Auto-purging ${expiredFiles.length} expired trash files...`);
+
+    try {
+        const idsToDelete = expiredFiles.map(f => f.id);
+        const activeFiles = window.allFiles.filter(f => !idsToDelete.includes(f.id));
+        const activePaths = new Set(activeFiles.map(f => f.file_path));
+
+        const pathsToStorageRemove = Array.from(new Set(
+            expiredFiles
+                .map(f => f.file_path)
+                .filter(path => !activePaths.has(path))
+        ));
+
+        if (pathsToStorageRemove.length > 0) {
+            await supabaseClient.storage
+                .from('upload system')
+                .remove(pathsToStorageRemove);
+        }
+
+        await supabaseClient
+            .from('Files')
+            .delete()
+            .in('id', idsToDelete);
+
+        await fetchFiles();
+    } catch (err) {
+        console.error("Error auto-purging expired files:", err);
+    }
+}
+
+// ==========================================
+// OFFLINE ACCESS & PWA INTEGRATION CODE
+// ==========================================
+
+function toggleOfflineUI(isOffline) {
+    const banner = document.getElementById('offline-banner');
+    if (banner) {
+        if (isOffline) {
+            banner.classList.remove('hidden');
+        } else {
+            banner.classList.add('hidden');
+        }
+    }
+
+    // Hide/Show upload and folder creation action buttons offline
+    const uploadTriggers = [
+        document.getElementById('d-upload-trigger'),
+        document.getElementById('d-folder-upload-trigger'),
+        document.getElementById('m-upload-fab'),
+        document.getElementById('d-new-folder-btn'),
+        document.getElementById('subfolder-create-btn'),
+        document.getElementById('trigger-upload-btn')
+    ];
+
+    uploadTriggers.forEach(btn => {
+        if (btn) {
+            if (isOffline) {
+                btn.style.setProperty('display', 'none', 'important');
+            } else {
+                btn.style.removeProperty('display');
+            }
+        }
+    });
+}
+
+function loadCachedFiles() {
+    console.log("Loading cached files and folders offline...");
+    const localF = localStorage.getItem('cached_files');
+    const localD = localStorage.getItem('cached_folders');
+    if (localF) window.allFiles = JSON.parse(localF);
+    if (localD) window.folders = JSON.parse(localD);
+    
+    // Render offline UI grids
+    renderAllFiles();
+    renderFolders();
+}
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+            .catch(err => console.error('Service Worker registration failed:', err));
+    });
+}
+
+// Network state listeners
+window.addEventListener('online', () => {
+    toggleOfflineUI(false);
+    showToast("Back online!");
+    fetchFiles(); // Automatically refresh list on network recovery
+});
+
+window.addEventListener('offline', () => {
+    toggleOfflineUI(true);
+    loadCachedFiles();
+});
+
+// Run initial online/offline check on load
+document.addEventListener('DOMContentLoaded', () => {
+    const isOffline = !navigator.onLine;
+    toggleOfflineUI(isOffline);
+    if (isOffline) {
+        loadCachedFiles();
+    }
+});
+
+
+// ==========================================
+// FILE VERSION HISTORY FEATURES
+// ==========================================
+
+async function pruneFileVersions(fileId) {
+    try {
+        const { data: versions, error } = await supabaseClient
+            .from('file_versions')
+            .select('id, file_path')
+            .eq('file_id', fileId)
+            .order('version_number', { ascending: true }); // Oldest first
+
+        if (error) throw error;
+
+        if (versions && versions.length > 9) {
+            const toDelete = versions.slice(0, versions.length - 9);
+            const deleteIds = toDelete.map(v => v.id);
+
+            const { error: dbDelErr } = await supabaseClient
+                .from('file_versions')
+                .delete()
+                .in('id', deleteIds);
+            if (dbDelErr) throw dbDelErr;
+
+            for (let v of toDelete) {
+                await deleteStorageFileSafely(v.file_path);
+            }
+        }
+    } catch (err) {
+        console.error("Error pruning versions:", err);
+    }
+}
+
+async function deleteStorageFileSafely(filePath) {
+    try {
+        const { data: otherFiles } = await supabaseClient
+            .from('Files')
+            .select('id')
+            .eq('file_path', filePath);
+        
+        const { data: otherVersions } = await supabaseClient
+            .from('file_versions')
+            .select('id')
+            .eq('file_path', filePath);
+
+        if ((!otherFiles || otherFiles.length === 0) && (!otherVersions || otherVersions.length === 0)) {
+            await supabaseClient.storage
+                .from('upload system')
+                .remove([filePath]);
+        }
+    } catch (err) {
+        console.warn("Storage delete failed:", err);
+    }
+}
+
+window.openVersionHistoryModal = async function (fileId) {
+    const modal = document.getElementById('version-history-modal');
+    const titleEl = document.getElementById('ver-history-title');
+    const listEl = document.getElementById('ver-history-list');
+    
+    if (!modal || !listEl) return;
+
+    const fileRecord = window.allFiles.find(f => f.id === fileId);
+    if (!fileRecord) return;
+
+    if (titleEl) titleEl.textContent = fileRecord.file_name;
+    listEl.innerHTML = '<p style="text-align:center;color:#64748b;font-size:13px;padding:20px 0;">Loading versions...</p>';
+    modal.classList.remove('hidden');
+
+    try {
+        const { data: history, error } = await supabaseClient
+            .from('file_versions')
+            .select('*')
+            .eq('file_id', fileId)
+            .order('version_number', { ascending: false });
+
+        if (error) throw error;
+
+        // Render current version
+        const sizeMbCurrent = (fileRecord.file_size / (1024 * 1024)).toFixed(2);
+        const dateCurrent = new Date(fileRecord.created_at || Date.now()).toLocaleString();
+        
+        const versionKey = ('version_number' in fileRecord) ? 'version_number' : 'version';
+        const currentVerNum = fileRecord[versionKey] || 1;
+
+        const { data: publicUrlData } = supabaseClient.storage
+            .from('upload system')
+            .getPublicUrl(fileRecord.file_path);
+        const currentDownloadUrl = publicUrlData.publicUrl;
+
+        let html = `
+            <!-- Current Version -->
+            <div class="version-item current">
+                <div class="version-info-col">
+                    <span class="version-badge current-badge">Version ${currentVerNum} (Current)</span>
+                    <span class="version-meta">${sizeMbCurrent} MB &bull; ${fileRecord.file_type || 'Unknown'}</span>
+                    <span class="version-date">${dateCurrent}</span>
+                </div>
+                <div class="version-actions-col">
+                    <a href="${currentDownloadUrl}" target="_blank" download="${fileRecord.file_name}" class="ver-btn ver-btn-download" title="Download Current">
+                        <i data-lucide="download" style="width:14px;height:14px;"></i>
+                    </a>
+                </div>
+            </div>
+        `;
+
+        if (history && history.length > 0) {
+            history.forEach(ver => {
+                const sizeMb = (ver.file_size / (1024 * 1024)).toFixed(2);
+                const date = new Date(ver.created_at).toLocaleString();
+                const { data: verUrlData } = supabaseClient.storage
+                    .from('upload system')
+                    .getPublicUrl(ver.file_path);
+                const verDownloadUrl = verUrlData.publicUrl;
+
+                html += `
+                    <!-- Historical Version -->
+                    <div class="version-item">
+                        <div class="version-info-col">
+                            <span class="version-badge">Version ${ver.version_number}</span>
+                            <span class="version-meta">${sizeMb} MB</span>
+                            <span class="version-date">${date}</span>
+                        </div>
+                        <div class="version-actions-col">
+                            <a href="${verDownloadUrl}" target="_blank" download="${fileRecord.file_name}" class="ver-btn ver-btn-download" title="Download Version ${ver.version_number}">
+                                <i data-lucide="download" style="width:14px;height:14px;"></i>
+                            </a>
+                            <button onclick="restoreFileVersion('${fileId}', '${ver.id}')" class="ver-btn ver-btn-restore" title="Restore to Current">
+                                <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            html += '<p style="text-align:center;color:#94a3b8;font-size:12px;padding:12px 0;">No previous versions recorded.</p>';
+        }
+
+        listEl.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
+
+    } catch (err) {
+        console.error("Error loading version history:", err);
+        listEl.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:20px 0;">Failed to load version history.</p>';
+    }
+};
+
+window.restoreFileVersion = async function (fileId, versionId) {
+    if (!confirm("Are you sure you want to restore this version as current?")) return;
+
+    const fileRecord = window.allFiles.find(f => f.id === fileId);
+    if (!fileRecord) return;
+
+    try {
+        // Fetch the selected historical version
+        const { data: oldVer, error: fetchErr } = await supabaseClient
+            .from('file_versions')
+            .select('*')
+            .eq('id', versionId)
+            .single();
+
+        if (fetchErr) throw fetchErr;
+
+        const versionKey = ('version_number' in fileRecord) ? 'version_number' : 'version';
+        const currentVerNum = fileRecord[versionKey] || 1;
+
+        // 1. Copy the current file record to file_versions first
+        const { error: copyErr } = await supabaseClient
+            .from('file_versions')
+            .insert([{
+                file_id: fileRecord.id,
+                user_id: fileRecord.user_id,
+                version_number: currentVerNum,
+                file_path: fileRecord.file_path,
+                file_size: fileRecord.file_size
+            }]);
+
+        if (copyErr) throw copyErr;
+
+        // 2. Prune versions if we exceed 9 in history
+        await pruneFileVersions(fileId);
+
+        // 3. Update the main Files record with historical size, path, and incremented version
+        const updateObj = {
+            file_size: oldVer.file_size,
+            file_path: oldVer.file_path,
+            created_at: new Date()
+        };
+        updateObj[versionKey] = currentVerNum + 1;
+
+        const { error: restoreErr } = await supabaseClient
+            .from('Files')
+            .update(updateObj)
+            .eq('id', fileId);
+
+        if (restoreErr) throw restoreErr;
+
+        // Success
+        document.getElementById('version-history-modal')?.classList.add('hidden');
+        showToast("Version restored!");
+        fetchFiles();
+
+    } catch (err) {
+        console.error("Error restoring version:", err);
+        alert(`Failed to restore version: ${err.message}`);
+    }
+};
+
+// Wire modal close buttons
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('version-history-modal');
+    document.getElementById('ver-history-close')?.addEventListener('click', () => modal?.classList.add('hidden'));
+    document.getElementById('ver-history-ok')?.addEventListener('click', () => modal?.classList.add('hidden'));
+    
+    // Close on overlay backdrop click
+    modal?.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+});
+
+
+// ==========================================
+// PWA INSTALLATION INTERCEPTORS & BUTTONS
+// ==========================================
+
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('beforeinstallprompt event triggered!');
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    
+    // Check viewport width to toggle desktop button or mobile banner
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+        const mobileBanner = document.getElementById('m-pwa-install-banner');
+        if (mobileBanner) {
+            mobileBanner.style.setProperty('display', 'flex', 'important');
+            mobileBanner.classList.remove('hidden');
+        }
+    } else {
+        const desktopBtn = document.getElementById('d-pwa-install-btn');
+        if (desktopBtn) {
+            desktopBtn.style.setProperty('display', 'inline-flex', 'important');
+            desktopBtn.classList.remove('hidden');
+        }
+    }
+    
+    if (window.lucide) window.lucide.createIcons();
+});
+
+// Install action handlers
+document.addEventListener('DOMContentLoaded', () => {
+    // Desktop Install click
+    const desktopBtn = document.getElementById('d-pwa-install-btn');
+    desktopBtn?.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        desktopBtn.style.setProperty('display', 'none', 'important');
+        // Show the install prompt
+        deferredPrompt.prompt();
+        // Wait for the user to respond to the prompt
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        deferredPrompt = null;
+    });
+
+    // Mobile Install Action click
+    const mobileAction = document.getElementById('m-pwa-install-action');
+    mobileAction?.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        const mobileBanner = document.getElementById('m-pwa-install-banner');
+        if (mobileBanner) {
+            mobileBanner.style.setProperty('display', 'none', 'important');
+        }
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        deferredPrompt = null;
+    });
+
+    // Close Mobile Banner click
+    document.getElementById('m-pwa-close-btn')?.addEventListener('click', () => {
+        const mobileBanner = document.getElementById('m-pwa-install-banner');
+        if (mobileBanner) {
+            mobileBanner.style.setProperty('display', 'none', 'important');
+        }
+    });
+});
+
+window.addEventListener('appinstalled', (evt) => {
+    console.log('GJS File Hub was successfully installed!');
+    document.getElementById('d-pwa-install-btn')?.style.setProperty('display', 'none', 'important');
+    document.getElementById('m-pwa-install-banner')?.style.setProperty('display', 'none', 'important');
+    if (typeof showToast === 'function') {
+        showToast("App installed successfully!");
+    }
+});
 
 
