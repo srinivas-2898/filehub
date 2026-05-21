@@ -20,6 +20,14 @@
             if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.body.classList.add('dark-mode');
             }
+            const isApp = window.Capacitor !== undefined || navigator.userAgent.includes('wv');
+            if (isApp) {
+                document.body.classList.add('is-app');
+            }
+            // Prevent browser's native PWA install/Add to Home screen prompt
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+            });
         })();
     </script>
     <div id="app">
@@ -69,10 +77,6 @@
                         <img id="header-avatar" src="https://via.placeholder.com/32" alt="Avatar" class="header-avatar-small">
                         <span id="user-greeting"></span>
                     </div>
-                    <button id="d-pwa-install-btn" class="icon-btn outline-btn hidden" title="Install App" style="background: rgba(77, 182, 172, 0.1); color: #4DB6AC; border: 1px solid rgba(77, 182, 172, 0.3); font-weight: 700; gap: 6px; padding: 0 14px; width: auto; border-radius: 12px; height: 38px; display: none; align-items: center; font-family: 'Poppins', sans-serif; cursor: pointer;">
-                        <i data-lucide="download-cloud" style="width: 16px; height: 16px;"></i>
-                        <span style="font-size: 13px;">Install App</span>
-                    </button>
                     <button id="theme-toggle-btn" class="icon-btn outline-btn" title="Toggle Theme"><i data-lucide="moon"></i></button>
                     <button id="logout-btn" class="icon-btn outline-btn" title="Log Out"><i data-lucide="log-out"></i></button>
                 </div>
@@ -85,6 +89,9 @@
                     <span class="m-brand-text">FileHub</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
+                    <a href="download.html" class="m-download-app-btn">
+                        📱 <span class="btn-text-full">Download App</span><span class="btn-text-short">App</span>
+                    </a>
                     <button id="m-theme-toggle-btn" class="icon-btn outline-btn" style="width: 38px; height: 38px; border-radius: 50%;" title="Toggle Theme">
                         <i data-lucide="moon" style="width: 18px; height: 18px;"></i>
                     </button>
@@ -122,24 +129,6 @@
             </nav>
 
             <main class="app-main">
-                <!-- Mobile PWA Install Banner -->
-                <div id="m-pwa-install-banner" class="mobile-only hidden" style="background: linear-gradient(135deg, #ff6b35, #ff8c5a); color: white; padding: 14px 20px; border-radius: 20px; margin-bottom: 20px; font-family: 'Poppins', sans-serif; display: none; flex-direction: column; gap: 10px; box-shadow: 0 4px 15px rgba(255,107,53,0.3); position: relative; border: 1px solid rgba(255,255,255,0.2);">
-                    <button id="m-pwa-close-btn" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: white; font-size: 16px; cursor: pointer; padding: 4px;">&times;</button>
-                    <div style="display: flex; align-items: center; gap: 12px; padding-right: 16px;">
-                        <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                            <i data-lucide="smartphone" style="width: 20px; height: 20px;"></i>
-                        </div>
-                        <div>
-                            <h4 style="margin: 0; font-size: 13.5px; font-weight: 800;">Install GJS File Hub</h4>
-                            <p style="margin: 2px 0 0 0; font-size: 11px; opacity: 0.9; font-weight: 500; line-height: 1.3;">Install GJS File Hub on your phone!</p>
-                        </div>
-                    </div>
-                    <button id="m-pwa-install-action" style="width: 100%; height: 38px; background: white; color: #ff6b35; border: none; border-radius: 10px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        <i data-lucide="plus-circle" style="width: 14px; height: 14px;"></i>
-                        <span>Install App</span>
-                    </button>
-                </div>
-
                 <!-- Offline Banner -->
                 <div id="offline-banner" class="hidden" style="background: linear-gradient(135deg, #ef4444, #f43f5e); color: white; padding: 12px 20px; border-radius: 16px; margin-bottom: 20px; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(239,68,68,0.2); transition: all 0.3s ease;">
                     <i data-lucide="wifi-off" style="width: 18px; height: 18px;"></i>

@@ -10,6 +10,7 @@ export default defineConfig({
         profile: resolve(__dirname, 'profile.html'),
         'forgot-password': resolve(__dirname, 'forgot-password.html'),
         'reset-password': resolve(__dirname, 'reset-password.html'),
+        download: resolve(__dirname, 'download.html'),
       },
     },
   },

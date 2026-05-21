@@ -9,9 +9,25 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.4",
     "vite": "^5.0.0"
-  }
+  },
+  "description": "an small file storing web application",
+  "main": "app.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/srinivas-2898/filehub.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/srinivas-2898/filehub/issues"
+  },
+  "homepage": "https://github.com/srinivas-2898/filehub#readme"
 }

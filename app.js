@@ -1,5 +1,21 @@
 import { supabaseClient } from './config.js';
 
+// App Detection & PWA Install Prompts Handling
+const isApp = window.Capacitor !== undefined || navigator.userAgent.includes('wv');
+if (isApp) {
+    if (document.body) {
+        document.body.classList.add('is-app');
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.add('is-app');
+        });
+    }
+}
+// Prevent browser's native PWA install/Add to Home screen prompt globally
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+});
+
 let currentUser = null;
 let filesChannel = null;
 
@@ -1413,7 +1429,6 @@ async function uploadFileToSupabase(file, finalName, folderId = null) {
         } else {
             // Symmetrical insert for brand new file, starting at Version 1
             const sample = window.allFiles[0];
-            const hasVerNum = sample && ('version_number' in sample);
             const insertObj = {
                 user_id: currentUser.id,
                 file_name: displayName,
@@ -1423,10 +1438,15 @@ async function uploadFileToSupabase(file, finalName, folderId = null) {
                 folder_id: folderId
             };
             
-            if (hasVerNum) {
-                insertObj.version_number = 1;
+            if (sample) {
+                if ('version_number' in sample) {
+                    insertObj.version_number = 1;
+                } else if ('version' in sample) {
+                    insertObj.version = 1;
+                }
             } else {
-                insertObj.version = 1;
+                // If there's no sample, use version_number = 1 (do not use version)
+                insertObj.version_number = 1;
             }
 
             const { error: dbError } = await supabaseClient
@@ -3378,84 +3398,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// ==========================================
-// PWA INSTALLATION INTERCEPTORS & BUTTONS
-// ==========================================
 
-let deferredPrompt;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('beforeinstallprompt event triggered!');
-    // Prevent the mini-infobar from appearing on mobile
-    e.preventDefault();
-    // Stash the event so it can be triggered later.
-    deferredPrompt = e;
-    
-    // Check viewport width to toggle desktop button or mobile banner
-    const isMobile = window.innerWidth <= 768;
-    
-    if (isMobile) {
-        const mobileBanner = document.getElementById('m-pwa-install-banner');
-        if (mobileBanner) {
-            mobileBanner.style.setProperty('display', 'flex', 'important');
-            mobileBanner.classList.remove('hidden');
-        }
-    } else {
-        const desktopBtn = document.getElementById('d-pwa-install-btn');
-        if (desktopBtn) {
-            desktopBtn.style.setProperty('display', 'inline-flex', 'important');
-            desktopBtn.classList.remove('hidden');
-        }
-    }
-    
-    if (window.lucide) window.lucide.createIcons();
-});
-
-// Install action handlers
-document.addEventListener('DOMContentLoaded', () => {
-    // Desktop Install click
-    const desktopBtn = document.getElementById('d-pwa-install-btn');
-    desktopBtn?.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
-        desktopBtn.style.setProperty('display', 'none', 'important');
-        // Show the install prompt
-        deferredPrompt.prompt();
-        // Wait for the user to respond to the prompt
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`User response to the install prompt: ${outcome}`);
-        deferredPrompt = null;
-    });
-
-    // Mobile Install Action click
-    const mobileAction = document.getElementById('m-pwa-install-action');
-    mobileAction?.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
-        const mobileBanner = document.getElementById('m-pwa-install-banner');
-        if (mobileBanner) {
-            mobileBanner.style.setProperty('display', 'none', 'important');
-        }
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`User response to the install prompt: ${outcome}`);
-        deferredPrompt = null;
-    });
-
-    // Close Mobile Banner click
-    document.getElementById('m-pwa-close-btn')?.addEventListener('click', () => {
-        const mobileBanner = document.getElementById('m-pwa-install-banner');
-        if (mobileBanner) {
-            mobileBanner.style.setProperty('display', 'none', 'important');
-        }
-    });
-});
-
-window.addEventListener('appinstalled', (evt) => {
-    console.log('GJS File Hub was successfully installed!');
-    document.getElementById('d-pwa-install-btn')?.style.setProperty('display', 'none', 'important');
-    document.getElementById('m-pwa-install-banner')?.style.setProperty('display', 'none', 'important');
-    if (typeof showToast === 'function') {
-        showToast("App installed successfully!");
-    }
-});
 
 

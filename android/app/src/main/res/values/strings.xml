@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GJS File Hub</string>
+    <string name="title_activity_main">GJS File Hub</string>
+    <string name="package_name">com.gjsfilehub.app</string>
+    <string name="custom_url_scheme">com.gjsfilehub.app</string>
+</resources>

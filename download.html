@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download GJS File Hub APK</title>
+    <meta name="description"
+        content="Download GJS File Hub APK for Android. Safe, fast, and secure file cloud management." />
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            background: var(--bg-body);
+            background-size: cover;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            font-family: 'Poppins', sans-serif;
+            color: var(--text-main);
+            overflow-y: auto;
+        }
+
+        .download-container {
+            width: 100%;
+            max-width: 480px;
+            margin: 20px auto;
+        }
+
+        .download-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 32px 24px;
+            box-shadow: var(--glass-shadow);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        /* App Store Listing Header styles */
+        .app-icon-wrapper {
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .app-icon {
+            width: 90px;
+            height: 90px;
+            object-fit: contain;
+            border-radius: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 24px rgba(77, 182, 172, 0.25);
+            background: #fff;
+            padding: 6px;
+        }
+
+        body.dark-mode .app-icon {
+            border-color: rgba(255, 255, 255, 0.1);
+            background: rgba(26, 26, 46, 0.8);
+        }
+
+        .app-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin: 0;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+        }
+
+        .developer {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4DB6AC;
+            margin: 4px 0 12px 0;
+        }
+
+        .rating-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 20px;
+        }
+
+        .star-icon {
+            fill: #FFB300;
+            color: #FFB300;
+            width: 18px;
+            height: 18px;
+        }
+
+        /* App Metadata Grid */
+        .app-meta-row {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            border-top: 1px solid var(--divider-color);
+            border-bottom: 1px solid var(--divider-color);
+            padding: 12px 0;
+            margin-bottom: 24px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            flex: 1;
+        }
+
+        .meta-item:not(:last-child) {
+            border-right: 1px solid var(--divider-color);
+        }
+
+        .meta-value {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .meta-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .app-description {
+            font-size: 13.5px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 24px;
+            font-weight: 500;
+            padding: 0 8px;
+        }
+
+        /* Screenshot Section */
+        .screenshots-section {
+            width: 100%;
+            text-align: left;
+            margin-bottom: 28px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding-left: 4px;
+        }
+
+        .screenshots-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            width: 100%;
+            padding-bottom: 8px;
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* IE and Edge */
+        }
+
+        .screenshots-scroll::-webkit-scrollbar {
+            display: none;
+            /* Chrome, Safari and Opera */
+        }
+
+        .screenshot-card {
+            flex-shrink: 0;
+            width: 136px;
+            height: 240px;
+            border-radius: 16px;
+            border: 1.5px solid var(--glass-border);
+            background: var(--bg-card-quick);
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .screenshot-card:hover {
+            transform: translateY(-2px);
+        }
+
+        /* SVG mockup styling */
+        .mockup-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            justify-content: space-between;
+        }
+
+        .mockup-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 6px;
+            border-bottom: 1px dashed var(--divider-color);
+        }
+
+        .mockup-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .mockup-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        .mockup-body {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .mockup-footer {
+            width: 100%;
+            height: 14px;
+            background: rgba(77, 182, 172, 0.15);
+            border-radius: 4px;
+        }
+
+        /* Download Button styles */
+        .apk-download-btn {
+            width: 100%;
+            height: 56px;
+            background: linear-gradient(135deg, #4DB6AC, #26C6DA);
+            color: white !important;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 6px 20px rgba(77, 182, 172, 0.35);
+            text-decoration: none;
+            margin-bottom: 8px;
+        }
+
+        .apk-download-btn:active {
+            transform: scale(0.97);
+            box-shadow: 0 4px 10px rgba(77, 182, 172, 0.2);
+        }
+
+        .apk-download-btn i {
+            width: 20px;
+            height: 20px;
+        }
+
+        .apk-meta-info {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 28px;
+        }
+
+        /* Installation Instructions steps */
+        .instructions-section {
+            width: 100%;
+            text-align: left;
+            margin-bottom: 24px;
+            border-top: 1px solid var(--divider-color);
+            padding-top: 24px;
+        }
+
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 14px;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .step-badge {
+            width: 28px;
+            height: 28px;
+            background: rgba(77, 182, 172, 0.15);
+            color: #00897b;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        body.dark-mode .step-badge {
+            background: rgba(77, 182, 172, 0.2);
+            color: #4DB6AC;
+        }
+
+        .step-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .step-title {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .step-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Alert Warning Box */
+        .warning-box {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1.5px dashed rgba(245, 158, 11, 0.3);
+            color: #d97706;
+            border-radius: 16px;
+            padding: 14px 16px;
+            font-size: 11.5px;
+            font-weight: 600;
+            text-align: left;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+            line-height: 1.4;
+        }
+
+        body.dark-mode .warning-box {
+            background: rgba(245, 158, 11, 0.05);
+            border-color: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+
+        .warning-icon {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+            margin-top: 1px;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        (function () {
+            const theme = localStorage.getItem('theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark-mode');
+            }
+        })();
+    </script>
+
+    <div class="download-container">
+        <div class="download-card">
+
+            <!-- App Icon -->
+            <div class="app-icon-wrapper">
+                <img src="/favicon.png" alt="GJS File Hub App Icon" class="app-icon">
+            </div>
+
+            <!-- Header Info -->
+            <h1 class="app-title">GJS File Hub</h1>
+            <div class="developer">By G. Srinivas</div>
+
+            <!-- Stars Rating -->
+            <div class="rating-wrapper">
+                <i data-lucide="star" class="star-icon"></i>
+                <i data-lucide="star" class="star-icon"></i>
+                <i data-lucide="star" class="star-icon"></i>
+                <i data-lucide="star" class="star-icon"></i>
+                <i data-lucide="star" class="star-icon"></i>
+            </div>
+
+            <!-- Stats Metadata Block -->
+            <div class="app-meta-row">
+                <div class="meta-item">
+                    <span class="meta-value">5.0 ★</span>
+                    <span class="meta-label">Rating</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-value">5 MB</span>
+                    <span class="meta-label">Size</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-value">10K+</span>
+                    <span class="meta-label">Downloads</span>
+                </div>
+            </div>
+
+            <!-- App Description -->
+            <p class="app-description">
+                A premium, secure cloud storage platform. Upload, catalog, view and share all your files and documents
+                on the go with zero speed limits.
+            </p>
+
+            <!-- Screen Previews Carousel -->
+            <div class="screenshots-section">
+                <div class="section-title">Screenshots</div>
+                <div class="screenshots-scroll">
+
+                    <!-- Screenshot 1 -->
+                    <div class="screenshot-card">
+                        <div class="mockup-inner">
+                            <div class="mockup-header">
+                                <div class="mockup-dots">
+                                    <div class="mockup-dot"></div>
+                                    <div class="mockup-dot"></div>
+                                </div>
+                                <span
+                                    style="font-size: 8px; font-weight:700; color: var(--text-muted);">Dashboard</span>
+                            </div>
+                            <div class="mockup-body">
+                                <i data-lucide="cloud-lightning" style="width: 28px; height: 28px; color: #4DB6AC;"></i>
+                                <span style="font-size: 9px; font-weight:700; text-align:center;">Secure Cloud
+                                    Storage</span>
+                                <span style="font-size: 8px; opacity:0.7; text-align:center;">Fast, reliable, secure
+                                    backups</span>
+                            </div>
+                            <div class="mockup-footer"></div>
+                        </div>
+                    </div>
+
+                    <!-- Screenshot 2 -->
+                    <div class="screenshot-card">
+                        <div class="mockup-inner">
+                            <div class="mockup-header">
+                                <div class="mockup-dots">
+                                    <div class="mockup-dot"></div>
+                                    <div class="mockup-dot"></div>
+                                </div>
+                                <span style="font-size: 8px; font-weight:700; color: var(--text-muted);">Files</span>
+                            </div>
+                            <div class="mockup-body">
+                                <i data-lucide="folder-git-2" style="width: 28px; height: 28px; color: #26C6DA;"></i>
+                                <span style="font-size: 9px; font-weight:700; text-align:center;">Folder
+                                    Management</span>
+                                <span style="font-size: 8px; opacity:0.7; text-align:center;">Organize files in clean
+                                    folder tiers</span>
+                            </div>
+                            <div class="mockup-footer"></div>
+                        </div>
+                    </div>
+
+                    <!-- Screenshot 3 -->
+                    <div class="screenshot-card">
+                        <div class="mockup-inner">
+                            <div class="mockup-header">
+                                <div class="mockup-dots">
+                                    <div class="mockup-dot"></div>
+                                    <div class="mockup-dot"></div>
+                                </div>
+                                <span style="font-size: 8px; font-weight:700; color: var(--text-muted);">Security</span>
+                            </div>
+                            <div class="mockup-body">
+                                <i data-lucide="shield-check" style="width: 28px; height: 28px; color: #10B981;"></i>
+                                <span style="font-size: 9px; font-weight:700; text-align:center;">Privacy
+                                    Protected</span>
+                                <span style="font-size: 8px; opacity:0.7; text-align:center;">Supabase backend guard
+                                    integrations</span>
+                            </div>
+                            <div class="mockup-footer"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- APK Download Action -->
+            <a href="https://github.com/srinivas-2898/filehub/releases/download/v1.0/GJS.File.Hub.apk"
+                class="apk-download-btn" download>
+                <i data-lucide="download"></i>
+                <span>Download APK</span>
+            </a>
+
+            <!-- Size Details Under Button -->
+            <div class="apk-meta-info">
+                Version 1.0 &bull; 5MB &bull; Requires Android 5.0+
+            </div>
+
+            <!-- Steps Section -->
+            <div class="instructions-section">
+                <div class="section-title">How To Install</div>
+                <div class="steps-container">
+
+                    <!-- Step 1 -->
+                    <div class="step-item">
+                        <div class="step-badge">1</div>
+                        <div class="step-content">
+                            <span class="step-title">Click Download APK</span>
+                            <span class="step-desc">Tap the download button above to retrieve the package file.</span>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="step-item">
+                        <div class="step-badge">2</div>
+                        <div class="step-content">
+                            <span class="step-title">Open downloaded file</span>
+                            <span class="step-desc">Once the download completes, tap the file in your notification bar
+                                or file manager.</span>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="step-item">
+                        <div class="step-badge">3</div>
+                        <div class="step-content">
+                            <span class="step-title">Allow installation from unknown sources</span>
+                            <span class="step-desc">Allow installation from unknown sources in phone settings if
+                                prompted by system.</span>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="step-item">
+                        <div class="step-badge">4</div>
+                        <div class="step-content">
+                            <span class="step-title">Click Install</span>
+                            <span class="step-desc">Confirm the security query and tap install to complete
+                                installation.</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Warning Box -->
+            <div class="warning-box">
+                <i data-lucide="alert-triangle" class="warning-icon"></i>
+                <span>Allow installation from unknown sources in your phone settings if asked.</span>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Initialize icons
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    </script>
+</body>
+
+</html>
