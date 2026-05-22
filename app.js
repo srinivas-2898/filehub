@@ -1,4 +1,6 @@
 import { supabaseClient } from './config.js';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { FileOpener } from '@capacitor-community/file-opener';
 
 // App Detection & PWA Install Prompts Handling
 const isApp = window.Capacitor !== undefined || navigator.userAgent.includes('wv');
@@ -18,6 +20,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 let currentUser = null;
 let filesChannel = null;
+let mainAppInitialized = false;
 
 // SPA State
 window.allFiles = [];
@@ -580,6 +583,9 @@ function showMainApp(user) {
     // Fetch profile data for greeting and avatar
     fetchProfile();
 
+    if (mainAppInitialized) return;
+    mainAppInitialized = true;
+
     if (IS_DASHBOARD) {
         setupSPA();
         setupMobileActions();
@@ -631,7 +637,10 @@ function setupSPA() {
             }
 
             if (targetId === 'page-files') {
+                // Reset to root when user clicks the Files nav
+                window.currentFolderId = null;
                 renderAllFiles();
+                if (window.renderFolders) window.renderFolders();
             } else if (targetId === 'page-trash') {
                 renderTrashFiles();
             }
@@ -1026,7 +1035,123 @@ function showToast(message) {
     }
 }
 
+function showFullScreenImagePreview(fileName, imageUrl) {
+    const overlay = document.createElement('div');
+    overlay.className = 'native-image-preview-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    `;
+
+    overlay.innerHTML = `
+        <!-- Top Navigation / Header -->
+        <div style="position: absolute; top: 0; left: 0; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 20px; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0)); z-index: 10;">
+            <div style="color: #ffffff; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 15px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">
+                \${fileName}
+            </div>
+            <button id="close-preview-btn" style="width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); backdrop-filter: blur(5px); color: #ffffff; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.2s;">
+                &times;
+            </button>
+        </div>
+
+        <!-- Image Container -->
+        <div style="width: 90%; height: 80%; display: flex; align-items: center; justify-content: center; transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);" id="preview-image-container">
+            <img src="\${imageUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.4);" alt="\${fileName}">
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Fade-in animation
+    requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        const imgContainer = overlay.querySelector('#preview-image-container');
+        if (imgContainer) imgContainer.style.transform = 'scale(1)';
+    });
+
+    const closePreview = () => {
+        overlay.style.opacity = '0';
+        const imgContainer = overlay.querySelector('#preview-image-container');
+        if (imgContainer) imgContainer.style.transform = 'scale(0.9)';
+        setTimeout(() => overlay.remove(), 300);
+    };
+
+    overlay.querySelector('#close-preview-btn').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        closePreview();
+    });
+
+    overlay.addEventListener('click', () => {
+        closePreview();
+    });
+}
+
+async function openNativeFile(fileName, url, fileType) {
+    showToast(`Downloading file for preview...`);
+
+    try {
+        const downloadResult = await Filesystem.downloadFile({
+            url: url,
+            path: fileName,
+            directory: Directory.Cache
+        });
+
+        await FileOpener.open({
+            filePath: downloadResult.path,
+            contentType: fileType || 'application/octet-stream',
+            openWithDefault: true
+        });
+    } catch (err) {
+        console.error('Error opening file natively:', err);
+        alert(`Could not open file: \${err.message || err}`);
+    }
+}
+
+async function openFileNative(fileName, url, fileType) {
+    const type = (fileType || '').toLowerCase();
+    
+    if (type.startsWith('image/')) {
+        showFullScreenImagePreview(fileName, url);
+    } else {
+        await openNativeFile(fileName, url, fileType);
+    }
+}
+
 window.shareFile = async function (fileName, url) {
+    const isApp = window.Capacitor !== undefined;
+
+    if (isApp) {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: fileName,
+                    text: "Check this file from GJS File Hub",
+                    url: url
+                });
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Share failed:', err);
+                }
+            }
+        } else {
+            console.error('navigator.share is not supported in this Capacitor app.');
+        }
+        return;
+    }
+
     const shareMessage = `Check out this file I shared from GJS File Hub: ${url}`;
 
     // Mobile: use native Web Share API
@@ -1384,11 +1509,27 @@ async function uploadFileToSupabase(file, finalName, folderId = null) {
         if (error) throw error;
 
         // Save metadata to database with user's optional custom name
-        const existingFile = window.allFiles.find(f => 
-            f.file_name === displayName && 
-            (f.folder_id || null) === (folderId || null) && 
-            !f.is_deleted
-        );
+        // Check directly in the database to prevent duplicate inserts on stale state
+        // Check for an existing (non-deleted) file with the same name in the same folder.
+        // Use .or() to match rows where is_deleted is NULL OR explicitly false,
+        // preventing duplicate inserts caused by NULL is_deleted values in the DB.
+        let checkQuery = supabaseClient
+            .from('Files')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq('file_name', displayName)
+            .or('is_deleted.is.null,is_deleted.eq.false');
+
+        if (folderId === null) {
+            checkQuery = checkQuery.is('folder_id', null);
+        } else {
+            checkQuery = checkQuery.eq('folder_id', folderId);
+        }
+
+        const { data: dbFiles, error: checkError } = await checkQuery;
+        if (checkError) throw checkError;
+
+        const existingFile = dbFiles && dbFiles.length > 0 ? dbFiles[0] : null;
 
         if (existingFile) {
             const versionKey = ('version_number' in existingFile) ? 'version_number' : 'version';
@@ -1428,7 +1569,13 @@ async function uploadFileToSupabase(file, finalName, folderId = null) {
 
         } else {
             // Symmetrical insert for brand new file, starting at Version 1
-            const sample = window.allFiles[0];
+            // Fetch a sample from database to inspect the scheme ('version_number' or 'version')
+            const { data: samples, error: sampleErr } = await supabaseClient
+                .from('Files')
+                .select('*')
+                .limit(1);
+
+            const sample = samples && samples.length > 0 ? samples[0] : null;
             const insertObj = {
                 user_id: currentUser.id,
                 file_name: displayName,
@@ -1509,8 +1656,52 @@ async function fetchFiles() {
 
         if (typeof renderMobileRecentFolders === 'function') renderMobileRecentFolders();
         if (typeof renderMobileViewFolders === 'function') renderMobileViewFolders();
+        renderUploadPageFolders();
     } catch (err) {
         console.error("Error fetching files:", err);
+    }
+}
+
+// ── Upload/Home section: render recent folders at top ──
+function renderUploadPageFolders() {
+    const mList = document.getElementById('m-home-folders-list');
+    const dList = document.getElementById('d-home-folders-list');
+    if (!mList && !dList) return;
+
+    // Root-level folders only (parent_id is null), newest first, max 3
+    const rootFolders = [...window.folders]
+        .filter(f => !f.parent_id)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 3);
+
+    function folderItemHtml(f) {
+        const fileCount = window.allFiles.filter(file => file.folder_id === f.id && !file.is_deleted).length;
+        return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.75);border-radius:14px;cursor:pointer;border:1px solid rgba(234,179,8,0.18);transition:transform 0.15s;" onclick="window.enterFolder('${f.id}')" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform='translateY(0)'">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+                <div style="width:36px;height:36px;background:rgba(234,179,8,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#eab308;flex-shrink:0;">
+                    <i data-lucide="folder" style="width:18px;height:18px;"></i>
+                </div>
+                <div style="min-width:0;flex:1;">
+                    <div style="font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Poppins',sans-serif;">${f.folder_name}</div>
+                    <div style="font-size:11px;color:#64748b;font-weight:500;font-family:'Poppins',sans-serif;">${fileCount} files</div>
+                </div>
+            </div>
+            <i data-lucide="chevron-right" style="width:16px;height:16px;color:#94a3b8;flex-shrink:0;"></i>
+        </div>`;
+    }
+
+    if (mList) {
+        mList.innerHTML = rootFolders.length
+            ? rootFolders.map(folderItemHtml).join('')
+            : '<p class="m-empty-text">No folders yet</p>';
+        if (window.lucide) window.lucide.createIcons();
+    }
+    if (dList) {
+        dList.innerHTML = rootFolders.length
+            ? rootFolders.map(folderItemHtml).join('')
+            : '<p style="text-align:center;color:#94a3b8;font-size:12px;font-weight:500;padding:8px 0;font-family:\'Poppins\',sans-serif;">No folders yet</p>';
+        if (window.lucide) window.lucide.createIcons();
     }
 }
 
@@ -1819,10 +2010,15 @@ window.renderAllFiles = function () {
     if (!filesContainer) return;
 
     let filtered = window.allFiles.filter(f => !f.is_deleted);
-    window.currentFilteredFiles = filtered;
 
-    // Folder Filter
-    filtered = filtered.filter(f => (f.folder_id || null) === (window.currentFolderId || null));
+    // Folder Filter:
+    // When inside a folder, show ONLY files in that folder.
+    // When in main Files view (no folder selected), show ALL files regardless of folder_id.
+    if (window.currentFolderId) {
+        filtered = filtered.filter(f => f.folder_id === window.currentFolderId);
+    }
+
+    window.currentFilteredFiles = filtered;
 
     // Filter
     if (window.currentFilter && window.currentFilter !== 'all') {
@@ -1851,6 +2047,9 @@ window.renderAllFiles = function () {
 };
 
 function renderFileSet(files, container, showCheckboxes) {
+    if (!container) return;
+    container.innerHTML = ''; // Clear container before rendering new set of files!
+
     if (!files || files.length === 0) {
         if (window.currentFolderId) {
             container.innerHTML = `
@@ -1993,6 +2192,22 @@ function renderFileSet(files, container, showCheckboxes) {
                 toggleBulkActionBar();
             });
         }
+
+        card.addEventListener('click', (e) => {
+            if (window.selectModeActive) {
+                const cb = card.querySelector('.file-checkbox');
+                if (cb && e.target !== cb) {
+                    cb.checked = !cb.checked;
+                    cb.dispatchEvent(new Event('change'));
+                }
+                return;
+            }
+
+            const isApp = window.Capacitor !== undefined;
+            if (isApp) {
+                openFileNative(file.file_name, publicUrl, file.file_type);
+            }
+        });
 
         container.appendChild(card);
     });
@@ -2224,10 +2439,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('subfolder-create-btn')?.addEventListener('click', () => {
         window.openNewFolderModal();
-    });
-
-    document.getElementById('d-folder-upload-trigger')?.addEventListener('click', () => {
-        document.getElementById('file-input')?.click();
     });
 
     document.getElementById('folder-save-btn')?.addEventListener('click', async () => {
@@ -2867,20 +3078,28 @@ window.showUndoToast = function (fileId, message) {
     }
 };
 
-window.renderTrashFiles = function () {
+window.renderTrashFiles = async function () {
     const trashContainer = document.getElementById('trash-file-list');
     if (!trashContainer) return;
 
-    const deletedFiles = window.allFiles.filter(f => f.is_deleted === true);
+    try {
+        const { data: deletedFiles, error } = await supabaseClient
+            .from('Files')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq('is_deleted', true)
+            .order('created_at', { ascending: false });
 
-    if (!deletedFiles.length) {
-        trashContainer.innerHTML = '<p class="empty-state" id="trash-empty-state-msg" style="display: block;">Your Trash Bin is empty.</p>';
-        return;
-    }
+        if (error) throw error;
 
-    trashContainer.innerHTML = '';
+        if (!deletedFiles || !deletedFiles.length) {
+            trashContainer.innerHTML = '<p class="empty-state" id="trash-empty-state-msg" style="display: block;">Your Trash Bin is empty.</p>';
+            return;
+        }
 
-    deletedFiles.forEach(file => {
+        trashContainer.innerHTML = '';
+
+        deletedFiles.forEach(file => {
         const card = document.createElement('div');
         card.className = 'file-card glass-panel';
 
@@ -2966,6 +3185,10 @@ window.renderTrashFiles = function () {
     });
 
     if (window.lucide) window.lucide.createIcons();
+    } catch (err) {
+        console.error("Error rendering trash files:", err);
+        trashContainer.innerHTML = '<p class="empty-state" id="trash-empty-state-msg" style="display: block; color: #ef4444;">Failed to load trash bin items.</p>';
+    }
 };
 
 window.restoreFile = async function (fileId) {
@@ -3019,17 +3242,32 @@ window.permanentlyDeleteFile = async function (fileId, filePath) {
 };
 
 window.emptyTrash = async function () {
-    const deletedFiles = window.allFiles.filter(f => f.is_deleted === true);
-    if (deletedFiles.length === 0) {
-        alert("Your Trash Bin is already empty.");
-        return;
-    }
-
-    if (!confirm("Are you sure you want to permanently empty the Trash Bin? All items will be lost forever.")) return;
-
     try {
+        const { data: deletedFiles, error: fetchErr } = await supabaseClient
+            .from('Files')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq('is_deleted', true);
+
+        if (fetchErr) throw fetchErr;
+
+        if (!deletedFiles || deletedFiles.length === 0) {
+            alert("Your Trash Bin is already empty.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to permanently empty the Trash Bin? All items will be lost forever.")) return;
+
         const idsToDelete = deletedFiles.map(f => f.id);
-        const activeFiles = window.allFiles.filter(f => f.is_deleted !== true);
+
+        const { data: activeFiles, error: activeErr } = await supabaseClient
+            .from('Files')
+            .select('file_path')
+            .eq('user_id', currentUser.id)
+            .eq('is_deleted', false);
+
+        if (activeErr) throw activeErr;
+
         const activePaths = new Set(activeFiles.map(f => f.file_path));
 
         const pathsToStorageRemove = Array.from(new Set(
@@ -3062,18 +3300,33 @@ window.emptyTrash = async function () {
 };
 
 async function purgeExpiredTrash() {
-    if (!currentUser || !window.allFiles.length) return;
-
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const expiredFiles = window.allFiles.filter(f => f.is_deleted === true && f.deleted_at && new Date(f.deleted_at).getTime() < thirtyDaysAgo);
-
-    if (expiredFiles.length === 0) return;
-
-    console.log(`Auto-purging ${expiredFiles.length} expired trash files...`);
+    if (!currentUser) return;
 
     try {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: expiredFiles, error: fetchErr } = await supabaseClient
+            .from('Files')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq('is_deleted', true)
+            .lt('deleted_at', thirtyDaysAgo);
+
+        if (fetchErr) throw fetchErr;
+
+        if (!expiredFiles || expiredFiles.length === 0) return;
+
+        console.log(`Auto-purging ${expiredFiles.length} expired trash files...`);
+
         const idsToDelete = expiredFiles.map(f => f.id);
-        const activeFiles = window.allFiles.filter(f => !idsToDelete.includes(f.id));
+
+        const { data: activeFiles, error: activeErr } = await supabaseClient
+            .from('Files')
+            .select('file_path')
+            .eq('user_id', currentUser.id)
+            .eq('is_deleted', false);
+
+        if (activeErr) throw activeErr;
+
         const activePaths = new Set(activeFiles.map(f => f.file_path));
 
         const pathsToStorageRemove = Array.from(new Set(

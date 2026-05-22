@@ -1,4 +1,4 @@
-import { supabaseClient } from './config.js';
+ import { supabaseClient } from './config.js';
 
 const forgotPasswordForm = document.getElementById('forgot-password-form');
 const resetEmailInput = document.getElementById('reset-email');

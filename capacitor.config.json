@@ -1,16 +1,18 @@
 {
   "appId": "com.gjsfilehub.app",
   "appName": "GJS File Hub",
-  "webDir": ".",
+  "webDir": "dist",
   "android": {
     "allowMixedContent": true,
     "backgroundColor": "#FF6B35"
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 2000,
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
       "backgroundColor": "#FF6B35",
-      "androidSplashResourceName": "splash",
+      "androidSplashResourceName": "splash_screen",
+      "androidScaleType": "CENTER_CROP",
       "showSpinner": false,
       "splashFullScreen": true,
       "splashImmersive": true
@@ -18,5 +20,6 @@
   },
   "server": {
     "androidScheme": "https"
-  }
+  },
+  "bundledWebRuntime": false
 }
