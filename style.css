@@ -788,6 +788,7 @@ body.dark-mode .auth-overlay {
     flex-direction: column;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     background: var(--bg-card);
+    cursor: pointer;
 }
 
 .file-card:hover {
@@ -1107,6 +1108,21 @@ body.dark-mode .auth-overlay {
 
 .bulk-action-bar.hidden {
     display: none !important;
+}
+
+/* Update Banner */
+#update-banner {
+    display: flex;
+    animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#update-banner.hidden {
+    display: none !important;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 /* File Checkbox */
@@ -4305,4 +4321,532 @@ body.dark-mode .qr-modal-close:hover {
 body.is-app .m-download-app-btn,
 body.is-app a.m-download-app-btn {
     display: none !important;
+}
+
+/* ==========================================================================
+   File Preview Modal
+   ========================================================================== */
+.file-preview-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+}
+
+.file-preview-modal.hidden {
+    display: none !important;
+}
+
+.file-preview-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.file-preview-panel {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    width: min(960px, 94vw);
+    max-height: min(92vh, 900px);
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 20px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    animation: filePreviewIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes filePreviewIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.file-preview-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.95));
+    flex-shrink: 0;
+}
+
+.file-preview-title {
+    flex: 1;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-preview-header-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.06);
+    color: #475569;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, color 0.2s;
+}
+
+.file-preview-header-btn:hover {
+    background: rgba(15, 23, 42, 0.1);
+    color: #1e293b;
+}
+
+.file-preview-close {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.06);
+    color: #475569;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, color 0.2s;
+}
+
+.file-preview-close:hover {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+}
+
+.file-preview-body {
+    flex: 1;
+    min-height: 200px;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(248, 250, 252, 0.6);
+    -webkit-overflow-scrolling: touch;
+}
+
+.file-preview-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.file-preview-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(77, 182, 172, 0.2);
+    border-top-color: #4DB6AC;
+    border-radius: 50%;
+    animation: filePreviewSpin 0.8s linear infinite;
+}
+
+@keyframes filePreviewSpin {
+    to { transform: rotate(360deg); }
+}
+
+.file-preview-body img.file-preview-image {
+    max-width: 100%;
+    max-height: min(60vh, 520px);
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    touch-action: none;
+    transform-origin: center center;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.file-preview-zoom-wrap {
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.file-preview-body iframe.file-preview-pdf {
+    width: 100%;
+    height: min(60vh, 520px);
+    min-height: 360px;
+    border: none;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.file-preview-body video.file-preview-video {
+    width: 100%;
+    max-height: min(60vh, 520px);
+    border-radius: 12px;
+    background: #000;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.file-preview-body audio.file-preview-audio {
+    width: 100%;
+    max-width: 480px;
+}
+
+.file-preview-body pre.file-preview-text {
+    width: 100%;
+    max-height: min(60vh, 520px);
+    margin: 0;
+    padding: 16px;
+    overflow: auto;
+    text-align: left;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #1e293b;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.preview-audio {
+    text-align: center;
+    padding: 24px 16px;
+}
+
+.preview-audio .music-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 16px;
+    background: rgba(77, 182, 172, 0.12);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4DB6AC;
+}
+
+.preview-audio .audio-name {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: #1e293b;
+    word-break: break-all;
+}
+
+.preview-copy-btn {
+    display: block;
+    margin: 0 0 8px auto;
+    height: 34px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(77, 182, 172, 0.12);
+    color: #4DB6AC;
+    font-family: 'Poppins', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.preview-copy-btn:hover {
+    background: rgba(77, 182, 172, 0.25);
+}
+
+.file-preview-fallback {
+    text-align: center;
+    padding: 24px 16px;
+    max-width: 360px;
+}
+
+.file-preview-fallback i {
+    color: #4DB6AC;
+    margin-bottom: 12px;
+}
+
+.file-preview-fallback p {
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: #475569;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+/* ─── Zoom container wrapper ─── */
+.preview-zoom-container {
+    transform-origin: center center;
+    transition: transform 0.2s ease;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ─── Zoom controls in footer ─── */
+.preview-zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: auto;
+}
+
+.preview-zoom-btn {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.06);
+    color: #475569;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.preview-zoom-btn:hover {
+    background: rgba(15, 23, 42, 0.12);
+}
+
+.preview-zoom-btn:active {
+    transform: scale(0.92);
+}
+
+.preview-zoom-level {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    min-width: 36px;
+    text-align: center;
+    user-select: none;
+}
+
+/* ─── Fullscreen state ─── */
+.file-preview-modal.fullscreen .file-preview-backdrop {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.file-preview-modal.fullscreen .file-preview-header,
+.file-preview-modal.fullscreen .file-preview-footer {
+    display: none;
+}
+
+.file-preview-modal.fullscreen .file-preview-panel {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    animation: none;
+}
+
+.file-preview-modal.fullscreen .file-preview-body {
+    padding: 0;
+    background: #000;
+}
+
+.file-preview-modal.fullscreen .file-preview-body iframe.file-preview-pdf {
+    height: 100vh;
+    border-radius: 0;
+}
+
+.file-preview-modal.fullscreen .file-preview-body video.file-preview-video {
+    max-height: 100vh;
+    border-radius: 0;
+}
+
+.file-preview-modal.fullscreen .file-preview-body img.file-preview-image {
+    max-height: 100vh;
+    border-radius: 0;
+}
+
+.file-preview-modal.fullscreen .file-preview-body pre.file-preview-text {
+    max-height: 100vh;
+    border-radius: 0;
+}
+
+body.dark-mode .file-preview-modal.fullscreen .file-preview-body {
+    background: #000;
+}
+
+/* ─── Floating close button in fullscreen ─── */
+.file-preview-modal.fullscreen .fullscreen-close-overlay {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10001;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 26px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: background 0.2s;
+}
+
+.file-preview-modal.fullscreen .fullscreen-close-overlay:hover {
+    background: rgba(239, 68, 68, 0.7);
+}
+
+/* ─── End of preview modal section ─── */
+
+.file-preview-footer {
+    display: flex;
+    gap: 10px;
+    padding: 14px 18px 18px;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.98);
+    flex-shrink: 0;
+}
+
+.file-preview-action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 48px;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    background: linear-gradient(135deg, #4DB6AC, #26C6DA);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(77, 182, 172, 0.35);
+}
+
+.file-preview-action-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.file-preview-share-btn {
+    background: #f1f5f9;
+    color: #1e293b;
+    box-shadow: none;
+    border: 1px solid #e2e8f0;
+}
+
+.file-preview-share-btn:hover {
+    background: #e2e8f0;
+}
+
+.file-preview-action-btn:active {
+    transform: scale(0.98);
+}
+
+body.file-preview-open {
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .file-preview-modal {
+        padding: 0;
+    }
+
+    .file-preview-panel {
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        max-height: 100%;
+        border-radius: 0;
+    }
+
+    .file-preview-body img.file-preview-image {
+        max-height: calc(100vh - 200px);
+    }
+
+    .file-preview-body iframe.file-preview-pdf {
+        height: calc(100vh - 200px);
+        min-height: 280px;
+    }
+
+    .preview-zoom-controls {
+        gap: 4px;
+    }
+
+    .preview-zoom-btn {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+body.dark-mode .file-preview-panel {
+    background: rgba(26, 26, 46, 0.98);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .file-preview-header,
+body.dark-mode .file-preview-footer {
+    background: rgba(26, 26, 46, 0.98);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .file-preview-title {
+    color: #f1f5f9;
+}
+
+body.dark-mode .file-preview-body {
+    background: rgba(15, 15, 30, 0.5);
+}
+
+body.dark-mode .file-preview-body pre.file-preview-text {
+    background: rgba(42, 42, 62, 0.8);
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .file-preview-fallback p {
+    color: #cbd5e1;
+}
+
+body.dark-mode .file-preview-share-btn {
+    background: rgba(42, 42, 62, 0.8);
+    color: #f1f5f9;
+    border-color: rgba(255, 255, 255, 0.1);
 }

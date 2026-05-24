@@ -10,8 +10,12 @@
   "dependencies": {
     "@capacitor-community/file-opener": "^1.0.3",
     "@capacitor/android": "4.7.3",
+    "@capacitor/app": "^4.1.1",
+    "@capacitor/browser": "^4.1.1",
     "@capacitor/core": "4.7.3",
     "@capacitor/filesystem": "^4.1.5",
+    "@capacitor/local-notifications": "^4.1.5",
+    "@capacitor/share": "^4.1.1",
     "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {

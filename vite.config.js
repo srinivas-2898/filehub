@@ -11,6 +11,7 @@ export default defineConfig({
         'forgot-password': resolve(__dirname, 'forgot-password.html'),
         'reset-password': resolve(__dirname, 'reset-password.html'),
         download: resolve(__dirname, 'download.html'),
+        viewer: resolve(__dirname, 'viewer.html'),
       },
     },
   },

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>File Preview - GJS File Hub</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body.is-app-viewer {
+            margin: 0;
+            min-height: 100dvh;
+            background: var(--bg-body);
+            font-family: 'Poppins', sans-serif;
+        }
+        .viewer-shell {
+            display: flex;
+            flex-direction: column;
+            min-height: 100dvh;
+            max-width: 100%;
+        }
+        .viewer-topbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            padding-top: max(14px, env(safe-area-inset-top));
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--glass-border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .viewer-topbar h1 {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 700;
+            margin: 0;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .viewer-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .viewer-actions .icon-btn {
+            width: 40px;
+            height: 40px;
+        }
+        .viewer-body {
+            flex: 1;
+            padding: 16px;
+            overflow: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .viewer-body img,
+        .viewer-body video {
+            max-width: 100%;
+            max-height: calc(100dvh - 120px);
+            border-radius: 12px;
+            object-fit: contain;
+        }
+        .viewer-body iframe {
+            width: 100%;
+            height: calc(100dvh - 100px);
+            border: none;
+            border-radius: 12px;
+            background: #fff;
+        }
+        .viewer-body pre {
+            width: 100%;
+            max-height: calc(100dvh - 100px);
+            overflow: auto;
+            background: rgba(255,255,255,0.85);
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #1e293b;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .viewer-fallback {
+            text-align: center;
+            padding: 32px 20px;
+            color: var(--text-muted);
+        }
+        .viewer-fallback p {
+            margin: 0 0 16px;
+            font-size: 14px;
+        }
+        .viewer-loading {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body class="is-app-viewer">
+    <script>
+        (function () {
+            const theme = localStorage.getItem('theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark-mode');
+            }
+        })();
+    </script>
+    <div class="viewer-shell">
+        <header class="viewer-topbar">
+            <button type="button" id="viewer-back-btn" class="icon-btn outline-btn" title="Back">
+                <i data-lucide="arrow-left"></i>
+            </button>
+            <h1 id="viewer-title">Loading…</h1>
+            <div class="viewer-actions">
+                <button type="button" id="viewer-share-btn" class="icon-btn outline-btn" title="Share">
+                    <i data-lucide="share-2"></i>
+                </button>
+                <button type="button" id="viewer-download-btn" class="icon-btn outline-btn" title="Download">
+                    <i data-lucide="download"></i>
+                </button>
+            </div>
+        </header>
+        <main class="viewer-body" id="viewer-content">
+            <div class="viewer-loading">
+                <div class="spinner" style="margin: 0 auto 12px;"></div>
+                <p>Loading preview…</p>
+            </div>
+        </main>
+    </div>
+    <script type="module" src="/viewer.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

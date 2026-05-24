@@ -522,6 +522,12 @@
                                 </button>
                             </div>
 
+                            <!-- Pull-to-Refresh indicator (Android app only) -->
+                            <div id="ptr-indicator" class="app-only" style="display:none;text-align:center;padding:12px 0;color:#4DB6AC;font-family:'Poppins',sans-serif;font-weight:700;font-size:13px;transition:opacity 0.2s;">
+                                <i data-lucide="arrow-down" id="ptr-icon" style="width:20px;height:20px;display:inline-block;vertical-align:middle;transition:transform 0.2s;"></i>
+                                <span id="ptr-text" style="vertical-align:middle;margin-left:6px;">Pull to refresh</span>
+                            </div>
+
                             <div id="file-list" class="file-grid">
                                 <p class="empty-state" id="empty-state-msg">No files yet. Upload your first file!</p>
                             </div>
@@ -619,6 +625,8 @@
                                         <button type="button" id="change-password-btn" class="outline-btn">Change Password</button>
                                         <button type="button" id="mobile-logout-btn" class="logout-btn-m">Log Out</button>
                                         <button type="button" id="delete-account-btn" class="danger-btn">Delete Account</button>
+                                    <!-- Share App - Android only -->
+                                    <button type="button" id="share-app-btn" class="outline-btn app-only" style="display:none;">Share App</button>
                                     </div>
                                 </form>
                             </div>
@@ -781,6 +789,13 @@
         <span class="toast-msg">File list updated</span>
     </div>
 
+    <!-- Update Available Banner -->
+    <div id="update-banner" class="hidden app-only" style="background:linear-gradient(135deg,#4DB6AC,#26C6DA);padding:10px 16px;font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;color:#fff;align-items:center;gap:10px;cursor:pointer;" onclick="this.classList.add('hidden');this.style.display='none';window.open(APP_UPDATE_URL,'_blank');">
+        <span style="font-size:18px;">🎉</span>
+        <span style="flex:1;">GJS File Hub v1.0 is here! Tap to see what's new.</span>
+        <button type="button" onclick="event.stopPropagation();document.getElementById('update-banner').classList.add('hidden');document.getElementById('update-banner').style.display='none';" style="background:none;border:none;color:#fff;font-size:18px;opacity:0.8;cursor:pointer;padding:0;line-height:1;">&times;</button>
+    </div>
+
     <!-- Success checkmark overlay for mobile folder creation -->
     <div id="m-success-overlay" class="modal-overlay hidden" style="background: rgba(255,255,255,0.95); z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
         <div class="checkmark-circle">
@@ -896,10 +911,108 @@
         </div>
     </div>
 
+    <!-- ═══ APP-ONLY: Long Press Quick Action Modal ═══ -->
+    <div id="app-longpress-modal" class="modal-overlay hidden app-only" style="display:none;z-index:2400;align-items:flex-end;background:rgba(0,0,0,0.5);">
+        <div style="width:100%;background:#fff;border-radius:24px 24px 0 0;padding:24px 24px 32px;font-family:'Poppins',sans-serif;box-shadow:0 -8px 32px rgba(0,0,0,0.15);animation:mSlideUp 0.3s cubic-bezier(0.16,1,0.3,1);">
+            <div style="width:40px;height:4px;background:#cbd5e1;border-radius:2px;margin:0 auto 16px;"></div>
+            <h3 id="lp-file-name" style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:16px;word-break:break-all;"></h3>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <button class="lp-action" data-action="open" style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:#f8fafc;border:1px solid #f1f5f9;color:#1e293b;font-size:14px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif;">
+                    <span style="width:32px;height:32px;border-radius:50%;background:#e0f2f1;display:flex;align-items:center;justify-content:center;color:#4DB6AC;flex-shrink:0;"><i data-lucide="eye" style="width:16px;height:16px;"></i></span>
+                    Open
+                </button>
+                <button class="lp-action" data-action="share" style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:#f8fafc;border:1px solid #f1f5f9;color:#1e293b;font-size:14px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif;">
+                    <span style="width:32px;height:32px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;color:#0ea5e9;flex-shrink:0;"><i data-lucide="share-2" style="width:16px;height:16px;"></i></span>
+                    Share
+                </button>
+                <button class="lp-action" data-action="download" style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:#f8fafc;border:1px solid #f1f5f9;color:#1e293b;font-size:14px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif;">
+                    <span style="width:32px;height:32px;border-radius:50%;background:#e0f2f1;display:flex;align-items:center;justify-content:center;color:#4DB6AC;flex-shrink:0;"><i data-lucide="download" style="width:16px;height:16px;"></i></span>
+                    Download
+                </button>
+                <button class="lp-action" data-action="rename" style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:#f8fafc;border:1px solid #f1f5f9;color:#1e293b;font-size:14px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif;">
+                    <span style="width:32px;height:32px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;color:#d97706;flex-shrink:0;"><i data-lucide="edit-3" style="width:16px;height:16px;"></i></span>
+                    Rename
+                </button>
+                <button class="lp-action" data-action="move" style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:#f8fafc;border:1px solid #f1f5f9;color:#1e293b;font-size:14px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif;">
+                    <span style="width:32px;height:32px;border-radius:50%;background:#e8f5e9;display:flex;align-items:center;justify-content:center;color:#388e3c;flex-shrink:0;"><i data-lucide="folder" style="width:16px;height:16px;"></i></span>
+                    Move to Folder
+                </button>
+                <button class="lp-action" data-action="delete" style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:#fff1f2;border:1px solid #ffe4e6;color:#f43f5e;font-size:14px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif;">
+                    <span style="width:32px;height:32px;border-radius:50%;background:#ffe4e6;display:flex;align-items:center;justify-content:center;color:#f43f5e;flex-shrink:0;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></span>
+                    Delete
+                </button>
+            </div>
+            <button id="lp-cancel-btn" style="width:100%;border:none;background:#f1f5f9;padding:14px;border-radius:16px;font-family:'Poppins',sans-serif;font-weight:700;font-size:14px;color:#64748b;cursor:pointer;text-align:center;margin-top:12px;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- ═══ APP-ONLY: Download Progress Overlay ═══ -->
+    <div id="app-download-progress" class="app-only hidden" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:2500;background:#fff;border-radius:24px 24px 0 0;padding:24px 24px 32px;font-family:'Poppins',sans-serif;box-shadow:0 -8px 32px rgba(0,0,0,0.15);animation:mSlideUp 0.3s cubic-bezier(0.16,1,0.3,1);">
+        <div style="width:40px;height:4px;background:#cbd5e1;border-radius:2px;margin:0 auto 16px;"></div>
+        <h3 style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:8px;">Downloading <span id="dl-progress-filename"></span></h3>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <div style="flex:1;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                <div id="dl-progress-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#4DB6AC,#26C6DA);border-radius:4px;transition:width 0.15s;"></div>
+            </div>
+            <span id="dl-progress-pct" style="font-size:14px;font-weight:800;color:#4DB6AC;white-space:nowrap;">0%</span>
+        </div>
+        <p id="dl-progress-status" style="font-size:12px;color:#64748b;margin:0;">Starting download...</p>
+    </div>
+
+    <!-- File Preview Modal (web + app) -->
+    <div id="file-preview-modal" class="file-preview-modal hidden" aria-hidden="true">
+        <div class="file-preview-backdrop" id="file-preview-backdrop"></div>
+        <div class="file-preview-panel" role="dialog" aria-modal="true" aria-labelledby="file-preview-title">
+            <header class="file-preview-header">
+                <h2 id="file-preview-title" class="file-preview-title">File</h2>
+                <button type="button" id="file-preview-fullscreen-btn" class="file-preview-header-btn" aria-label="Fullscreen" title="Fullscreen"><i data-lucide="maximize" style="width:18px;height:18px;"></i></button>
+                <button type="button" id="file-preview-close" class="file-preview-close" aria-label="Close">&times;</button>
+            </header>
+            <div id="file-preview-body" class="file-preview-body">
+                <div class="file-preview-loading">
+                    <div class="file-preview-spinner"></div>
+                    <p>Loading preview…</p>
+                </div>
+            </div>
+            <footer class="file-preview-footer">
+                <div class="preview-zoom-controls">
+                    <button type="button" id="preview-zoom-out" class="preview-zoom-btn" aria-label="Zoom Out" title="Zoom Out"><i data-lucide="zoom-out" style="width:16px;height:16px;"></i></button>
+                    <span id="preview-zoom-level" class="preview-zoom-level">100%</span>
+                    <button type="button" id="preview-zoom-in" class="preview-zoom-btn" aria-label="Zoom In" title="Zoom In"><i data-lucide="zoom-in" style="width:16px;height:16px;"></i></button>
+                </div>
+                <button type="button" id="file-preview-download" class="file-preview-action-btn">
+                    <i data-lucide="download"></i>
+                    <span>Download</span>
+                </button>
+                <button type="button" id="file-preview-share" class="file-preview-action-btn file-preview-share-btn">
+                    <i data-lucide="share-2"></i>
+                    <span>Share</span>
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- ═══ APP-ONLY: Move to Folder Modal ═══ -->
+    <div id="app-move-modal" class="modal-overlay hidden app-only" style="display:none;z-index:2600;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);padding:16px;">
+        <div style="width:100%;max-width:400px;background:#fff;border-radius:24px;padding:24px;font-family:'Poppins',sans-serif;box-shadow:0 10px 30px rgba(0,0,0,0.15);">
+            <h3 style="font-size:18px;font-weight:800;color:#1e293b;margin-bottom:4px;">Move to Folder</h3>
+            <p style="font-size:12px;color:#64748b;margin-bottom:16px;">Select destination folder:</p>
+            <div id="app-move-folder-list" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;margin-bottom:16px;"></div>
+            <div style="display:flex;gap:12px;">
+                <button id="app-move-cancel" style="flex:1;height:48px;background:#f1f5f9;color:#64748b;border:none;border-radius:16px;font-size:14px;font-weight:700;cursor:pointer;">Cancel</button>
+                <button id="app-move-confirm" style="flex:1;height:48px;background:linear-gradient(135deg,#4DB6AC,#26C6DA);color:white;border:none;border-radius:16px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(77,182,172,0.3);" disabled>Move</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="/app.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            const isApp = window.Capacitor !== undefined;
+            if (isApp) {
+                document.querySelectorAll('.app-only').forEach(el => el.style.display = '');
+            }
         });
     </script>
 </body>

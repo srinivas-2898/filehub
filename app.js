@@ -1,9 +1,15 @@
 import { supabaseClient } from './config.js';
+import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { FileOpener } from '@capacitor-community/file-opener';
+import { isCapacitorApp, APP_AUTH_REDIRECT, handleOAuthRedirectUrl } from './platform.js';
+import { appDownloadFile, appShareFile } from './app-native-files.js';
+
+window.appDownloadFile = appDownloadFile;
+window.appShareFile = appShareFile;
 
 // App Detection & PWA Install Prompts Handling
-const isApp = window.Capacitor !== undefined || navigator.userAgent.includes('wv');
+const isApp = isCapacitorApp();
 if (isApp) {
     if (document.body) {
         document.body.classList.add('is-app');
@@ -31,6 +37,27 @@ window.selectedFiles = new Set();
 window.selectModeActive = false;
 window.currentFilteredFiles = [];
 window.undoTimeoutId = null;
+
+const APP_VERSION = 'v1.0';
+const APP_UPDATE_URL = 'https://github.com/srinivas-2898/filehub/releases/tag/v1.0';
+
+function checkAppUpdateNotification() {
+    const lastSeen = localStorage.getItem('app_version_seen');
+    if (lastSeen === APP_VERSION) return;
+
+    localStorage.setItem('app_version_seen', APP_VERSION);
+
+    const banner = document.getElementById('update-banner');
+    if (banner) {
+        banner.classList.remove('hidden');
+        banner.style.display = '';
+    }
+
+    setTimeout(() => {
+        showToast('GJS File Hub v1.0 is here! Tap "Update Available" for details.');
+    }, 1500);
+}
+
 window.undoFileId = null;
 window.hasPurged = false;
 window.isListView = false;
@@ -83,6 +110,16 @@ function detectDevice() {
 detectDevice();
 window.addEventListener('resize', detectDevice);
 window.addEventListener('orientationchange', detectDevice);
+
+// Google OAuth deep link (native app only)
+if (isCapacitorApp()) {
+    App.addListener('appUrlOpen', async (event) => {
+        const ok = await handleOAuthRedirectUrl(event.url, supabaseClient, Browser);
+        if (ok && IS_INDEX) {
+            window.location.replace('dashboard.html');
+        }
+    });
+}
 
 // ══════════════════════════════════════════════
 //  THEME MANAGER — Dark / Light Mode Toggle
@@ -448,13 +485,27 @@ const googleLoginBtn = document.getElementById('google-login-btn');
 if (googleLoginBtn) {
     googleLoginBtn.addEventListener('click', async () => {
         try {
-            const { error } = await supabaseClient.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: window.location.origin + '/dashboard.html'
+            if (isCapacitorApp()) {
+                const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: APP_AUTH_REDIRECT,
+                        skipBrowserRedirect: true
+                    }
+                });
+                if (error) throw error;
+                if (data?.url) {
+                    await Browser.open({ url: data.url, windowName: '_self' });
                 }
-            });
-            if (error) throw error;
+            } else {
+                const { error } = await supabaseClient.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: window.location.origin + '/dashboard.html'
+                    }
+                });
+                if (error) throw error;
+            }
         } catch (err) {
             console.error('Google login error:', err);
             if (authError) authError.textContent = err.message;
@@ -589,7 +640,9 @@ function showMainApp(user) {
     if (IS_DASHBOARD) {
         setupSPA();
         setupMobileActions();
+        initFilePreviewModal();
         fetchFiles();
+        checkAppUpdateNotification();
         setupRealtimeSubscription();
         setupProfilePage();
         setupMobileFolders();
@@ -791,25 +844,18 @@ function setupFileControls() {
 
         try {
             const idsArray = Array.from(window.selectedImportIds);
-            const filesToCopy = window.allFiles.filter(f => idsArray.includes(String(f.id)));
-            
-            // Map each selected file to a new record containing the active folder_id
-            const copies = filesToCopy.map(f => ({
-                user_id: currentUser.id,
-                file_name: f.file_name,
-                file_size: f.file_size,
-                file_type: f.file_type,
-                file_path: f.file_path, // Reference the exact same storage path!
-                folder_id: window.currentFolderId
-            }));
 
+            // Move files into folder (update reference only — no re-upload)
             const { error } = await supabaseClient
                 .from('Files')
-                .insert(copies);
+                .update({ folder_id: window.currentFolderId })
+                .in('id', idsArray);
 
             if (error) throw error;
 
-            showToast(`Imported ${idsArray.length} files successfully!`);
+            showToast(isCapacitorApp()
+                ? `Moved ${idsArray.length} file(s) successfully!`
+                : `Imported ${idsArray.length} files successfully!`);
             document.getElementById('m-import-files-modal').classList.add('hidden');
             fetchFiles();
         } catch (err) {
@@ -1035,120 +1081,383 @@ function showToast(message) {
     }
 }
 
-function showFullScreenImagePreview(fileName, imageUrl) {
-    const overlay = document.createElement('div');
-    overlay.className = 'native-image-preview-overlay';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(15, 23, 42, 0.95);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    `;
+const FILE_VIEW_BUCKET = 'upload system';
 
-    overlay.innerHTML = `
-        <!-- Top Navigation / Header -->
-        <div style="position: absolute; top: 0; left: 0; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 20px; box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0)); z-index: 10;">
-            <div style="color: #ffffff; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 15px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">
-                \${fileName}
-            </div>
-            <button id="close-preview-btn" style="width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); backdrop-filter: blur(5px); color: #ffffff; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.2s;">
-                &times;
-            </button>
-        </div>
+let _filePreviewState = null;
 
-        <!-- Image Container -->
-        <div style="width: 90%; height: 80%; display: flex; align-items: center; justify-content: center; transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);" id="preview-image-container">
-            <img src="\${imageUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.4);" alt="\${fileName}">
-        </div>
-    `;
+function getFilePublicUrl(filePath) {
+    const { data } = supabaseClient.storage.from(FILE_VIEW_BUCKET).getPublicUrl(filePath);
+    return data.publicUrl;
+}
 
-    document.body.appendChild(overlay);
+function getFilePreviewCategory(file) {
+    const type = (file.file_type || '').toLowerCase();
+    const name = (file.file_name || '').toLowerCase();
+    const ext = name.includes('.') ? name.split('.').pop() : '';
 
-    // Fade-in animation
-    requestAnimationFrame(() => {
-        overlay.style.opacity = '1';
-        const imgContainer = overlay.querySelector('#preview-image-container');
-        if (imgContainer) imgContainer.style.transform = 'scale(1)';
-    });
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+    if (type.startsWith('image/') || imageExts.includes(ext)) return 'image';
 
-    const closePreview = () => {
-        overlay.style.opacity = '0';
-        const imgContainer = overlay.querySelector('#preview-image-container');
-        if (imgContainer) imgContainer.style.transform = 'scale(0.9)';
-        setTimeout(() => overlay.remove(), 300);
+    if (type.includes('pdf') || name.endsWith('.pdf')) return 'pdf';
+
+    const videoExts = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'wmv', 'flv', '3gp'];
+    if (type.startsWith('video/') || videoExts.includes(ext)) return 'video';
+
+    const audioExts = ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'wma', 'aac', 'opus'];
+    if (type.startsWith('audio/') || audioExts.includes(ext)) return 'audio';
+
+    const docExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+    if (
+        docExts.some((e) => name.endsWith('.' + e)) ||
+        type.includes('msword') ||
+        type.includes('officedocument') ||
+        type.includes('spreadsheet') ||
+        type.includes('presentation')
+    ) {
+        return 'document';
+    }
+
+    const textExts = ['txt', 'csv', 'json', 'xml', 'html', 'md', 'log', 'yml', 'yaml', 'toml', 'ini', 'cfg', 'sh', 'bat', 'py', 'js', 'ts', 'css', 'scss', 'less', 'env', 'gitignore'];
+    if (type.startsWith('text/') || textExts.includes(ext)) return 'text';
+
+    return 'unsupported';
+}
+
+function setupImagePinchZoom(img) {
+    const wrap = img.parentElement;
+    if (!wrap) return;
+
+    let scale = 1;
+    let lastScale = 1;
+    let startDist = 0;
+    let lastTouchEnd = 0;
+
+    const applyScale = () => {
+        img.style.transform = `scale(${scale})`;
     };
 
-    overlay.querySelector('#close-preview-btn').addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        closePreview();
-    });
+    wrap.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            startDist = Math.hypot(dx, dy);
+            lastScale = scale;
+        }
+    }, { passive: false });
 
-    overlay.addEventListener('click', () => {
-        closePreview();
+    wrap.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && startDist > 0) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+            scale = Math.min(4, Math.max(1, lastScale * (dist / startDist)));
+            applyScale();
+        }
+    }, { passive: false });
+
+    wrap.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) startDist = 0;
+        const now = Date.now();
+        if (e.changedTouches.length === 1 && now - lastTouchEnd < 300) {
+            scale = 1;
+            applyScale();
+        }
+        lastTouchEnd = now;
     });
 }
 
-async function openNativeFile(fileName, url, fileType) {
-    showToast(`Downloading file for preview...`);
+function closeFilePreviewModal() {
+    const modal = document.getElementById('file-preview-modal');
+    if (!modal) return;
 
-    try {
-        const downloadResult = await Filesystem.downloadFile({
-            url: url,
-            path: fileName,
-            directory: Directory.Cache
-        });
-
-        await FileOpener.open({
-            filePath: downloadResult.path,
-            contentType: fileType || 'application/octet-stream',
-            openWithDefault: true
-        });
-    } catch (err) {
-        console.error('Error opening file natively:', err);
-        alert(`Could not open file: \${err.message || err}`);
+    const video = modal.querySelector('video');
+    if (video) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
     }
+
+    modal.classList.remove('fullscreen');
+    const fsClose = modal.querySelector('.fullscreen-close-overlay');
+    if (fsClose) fsClose.remove();
+    const fsBtn = document.getElementById('file-preview-fullscreen-btn');
+    if (fsBtn) {
+        fsBtn.innerHTML = '<i data-lucide="maximize" style="width:18px;height:18px;"></i>';
+    }
+    _previewZoom = 1;
+
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('file-preview-open');
+    _filePreviewState = null;
+}
+
+function downloadPreviewFile(fileName, url) {
+    if (!url) return;
+    if (isCapacitorApp() && typeof window.downloadFileWithProgress === 'function') {
+        window.downloadFileWithProgress(fileName, url);
+        return;
+    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName || 'download';
+    link.target = '_blank';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+
+async function renderFilePreviewContent(bodyEl, category, publicUrl, file) {
+    const fileName = file.file_name || 'File';
+
+    if (category === 'image') {
+        bodyEl.innerHTML = `
+            <div class="file-preview-zoom-wrap">
+                <img class="file-preview-image" src="${publicUrl}" alt="${fileName.replace(/"/g, '&quot;')}">
+            </div>`;
+        const img = bodyEl.querySelector('.file-preview-image');
+        if (img) setupImagePinchZoom(img);
+        return;
+    }
+
+    if (category === 'pdf') {
+        const embedUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(publicUrl)}&embedded=true`;
+        bodyEl.innerHTML = `<iframe class="file-preview-pdf" src="${embedUrl}" title="${fileName.replace(/"/g, '&quot;')}"></iframe>`;
+        return;
+    }
+
+    if (category === 'video') {
+        bodyEl.innerHTML = `<video class="file-preview-video" src="${publicUrl}" controls playsinline controlsList="nodownload"></video>`;
+        return;
+    }
+
+    if (category === 'audio') {
+        bodyEl.innerHTML = `
+            <div class="preview-audio">
+                <div class="music-icon"><i data-lucide="music" style="width:40px;height:40px;"></i></div>
+                <div class="audio-name">${fileName.replace(/"/g, '&quot;')}</div>
+                <audio class="file-preview-audio" src="${publicUrl}" controls></audio>
+            </div>`;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+    }
+
+    if (category === 'document') {
+        const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicUrl)}`;
+        bodyEl.innerHTML = `<iframe class="file-preview-pdf" src="${officeUrl}" title="${fileName.replace(/"/g, '&quot;')}"></iframe>`;
+        return;
+    }
+
+    if (category === 'text') {
+        bodyEl.innerHTML = `
+            <div style="width:100%;position:relative;">
+                <div class="preview-loading">
+                    <div class="file-preview-spinner"></div>
+                    <p>Loading text…</p>
+                </div>
+            </div>`;
+        try {
+            const res = await fetch(publicUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            let text = await res.text();
+            if (text.length > 500000) text = text.slice(0, 500000) + '\n…(truncated)';
+            const pre = document.createElement('pre');
+            pre.className = 'file-preview-text';
+            pre.textContent = text;
+
+            const copyBtn = document.createElement('button');
+            copyBtn.textContent = 'Copy Content';
+            copyBtn.className = 'preview-copy-btn';
+            copyBtn.addEventListener('click', () => {
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        copyBtn.textContent = 'Copied!';
+                        setTimeout(() => { copyBtn.textContent = 'Copy Content'; }, 2000);
+                    });
+                }
+            });
+
+            bodyEl.innerHTML = '';
+            bodyEl.appendChild(copyBtn);
+            bodyEl.appendChild(pre);
+        } catch (err) {
+            bodyEl.innerHTML = `
+                <div class="file-preview-fallback">
+                    <p>Could not load text: ${err.message || err}</p>
+                </div>`;
+        }
+        return;
+    }
+
+    const sizeStr = file.file_size ? (file.file_size / (1024 * 1024)).toFixed(2) + ' MB' : '';
+    bodyEl.innerHTML = `
+        <div class="file-preview-fallback">
+            <i data-lucide="file" style="width: 48px; height: 48px;"></i>
+            <p><strong>${fileName.replace(/"/g, '&quot;')}</strong></p>
+            ${sizeStr ? `<p style="font-size:12px;color:#94a3b8;">${sizeStr}</p>` : ''}
+            <p style="margin-top:8px;">Preview not available for this file type.</p>
+        </div>`;
+    if (window.lucide) window.lucide.createIcons();
+}
+
+let _previewZoom = 1;
+
+function applyPreviewZoom() {
+    const wrap = document.querySelector('#file-preview-body .preview-zoom-container');
+    if (wrap) {
+        wrap.style.transform = `scale(${_previewZoom})`;
+    }
+    const levelEl = document.getElementById('preview-zoom-level');
+    if (levelEl) levelEl.textContent = Math.round(_previewZoom * 100) + '%';
+}
+
+function zoomInPreview() {
+    _previewZoom = Math.min(5, _previewZoom + 0.25);
+    applyPreviewZoom();
+}
+
+function zoomOutPreview() {
+    _previewZoom = Math.max(0.25, _previewZoom - 0.25);
+    applyPreviewZoom();
+}
+
+function resetPreviewZoom() {
+    _previewZoom = 1;
+    applyPreviewZoom();
+}
+
+function togglePreviewFullscreen() {
+    const modal = document.getElementById('file-preview-modal');
+    if (!modal) return;
+    const isFs = modal.classList.toggle('fullscreen');
+    const btn = document.getElementById('file-preview-fullscreen-btn');
+    if (btn) {
+        btn.innerHTML = isFs
+            ? '<i data-lucide="minimize" style="width:18px;height:18px;"></i>'
+            : '<i data-lucide="maximize" style="width:18px;height:18px;"></i>';
+        if (window.lucide) window.lucide.createIcons();
+    }
+    if (isFs) {
+        if (!modal.querySelector('.fullscreen-close-overlay')) {
+            const closeFs = document.createElement('button');
+            closeFs.className = 'fullscreen-close-overlay';
+            closeFs.innerHTML = '&times;';
+            closeFs.addEventListener('click', togglePreviewFullscreen);
+            modal.appendChild(closeFs);
+        }
+    } else {
+        const el = modal.querySelector('.fullscreen-close-overlay');
+        if (el) el.remove();
+    }
+}
+
+async function showFilePreviewModal(file, publicUrl, category) {
+    const modal = document.getElementById('file-preview-modal');
+    const titleEl = document.getElementById('file-preview-title');
+    const bodyEl = document.getElementById('file-preview-body');
+    const shareBtn = document.getElementById('file-preview-share');
+    if (!modal || !titleEl || !bodyEl) return;
+
+    modal.classList.remove('fullscreen');
+    const fsBtn = document.getElementById('file-preview-fullscreen-btn');
+    if (fsBtn) {
+        fsBtn.innerHTML = '<i data-lucide="maximize" style="width:18px;height:18px;"></i>';
+    }
+    const fsClose = modal.querySelector('.fullscreen-close-overlay');
+    if (fsClose) fsClose.remove();
+    _previewZoom = 1;
+
+    _filePreviewState = { file, publicUrl, category };
+
+    titleEl.textContent = file.file_name || 'File';
+    bodyEl.innerHTML = `
+        <div class="file-preview-loading">
+            <div class="file-preview-spinner"></div>
+            <p>Loading preview…</p>
+        </div>`;
+
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('file-preview-open');
+
+    if (shareBtn) {
+        shareBtn.style.display = category === 'document' ? 'none' : '';
+    }
+
+    await renderFilePreviewContent(bodyEl, category, publicUrl, file);
+    if (window.lucide) window.lucide.createIcons();
+
+    // Wrap content for zoom (not for images which have pinch zoom)
+    if (category !== 'image' && !bodyEl.querySelector('.preview-zoom-container')) {
+        const children = Array.from(bodyEl.children);
+        if (children.length > 0) {
+            const wrap = document.createElement('div');
+            wrap.className = 'preview-zoom-container';
+            children.forEach(c => wrap.appendChild(c));
+            bodyEl.appendChild(wrap);
+        }
+    }
+
+    const zoomLevel = document.getElementById('preview-zoom-level');
+    if (zoomLevel) zoomLevel.textContent = '100%';
+}
+
+function openFilePreview(file) {
+    if (!file?.file_path) return;
+    const publicUrl = getFilePublicUrl(file.file_path);
+    const category = getFilePreviewCategory(file);
+    showFilePreviewModal(file, publicUrl, category);
+}
+
+function openAppFileViewer(file) {
+    openFilePreview(file);
 }
 
 async function openFileNative(fileName, url, fileType) {
-    const type = (fileType || '').toLowerCase();
-    
-    if (type.startsWith('image/')) {
-        showFullScreenImagePreview(fileName, url);
-    } else {
-        await openNativeFile(fileName, url, fileType);
-    }
+    if (!url) return;
+    const pseudoFile = { file_name: fileName, file_type: fileType, file_path: '' };
+    const category = getFilePreviewCategory(pseudoFile);
+    await showFilePreviewModal(pseudoFile, url, category);
 }
 
-window.shareFile = async function (fileName, url) {
-    const isApp = window.Capacitor !== undefined;
+function initFilePreviewModal() {
+    const modal = document.getElementById('file-preview-modal');
+    if (!modal || modal.dataset.wired) return;
+    modal.dataset.wired = '1';
 
-    if (isApp) {
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: fileName,
-                    text: "Check this file from GJS File Hub",
-                    url: url
-                });
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    console.error('Share failed:', err);
-                }
-            }
-        } else {
-            console.error('navigator.share is not supported in this Capacitor app.');
+    document.getElementById('file-preview-close')?.addEventListener('click', closeFilePreviewModal);
+    document.getElementById('file-preview-backdrop')?.addEventListener('click', closeFilePreviewModal);
+    document.getElementById('file-preview-fullscreen-btn')?.addEventListener('click', togglePreviewFullscreen);
+    document.getElementById('preview-zoom-in')?.addEventListener('click', zoomInPreview);
+    document.getElementById('preview-zoom-out')?.addEventListener('click', zoomOutPreview);
+
+    document.getElementById('file-preview-download')?.addEventListener('click', () => {
+        if (!_filePreviewState?.publicUrl) return;
+        downloadPreviewFile(_filePreviewState.file.file_name, _filePreviewState.publicUrl);
+    });
+
+    document.getElementById('file-preview-share')?.addEventListener('click', () => {
+        if (!_filePreviewState?.publicUrl) return;
+        shareFile(
+            _filePreviewState.file.file_name,
+            _filePreviewState.publicUrl,
+            _filePreviewState.file.file_type
+        );
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeFilePreviewModal();
         }
+    });
+}
+
+window.shareFile = async function (fileName, url, fileType) {
+    if (isCapacitorApp()) {
+        await appShareFile(fileName, url);
         return;
     }
 
@@ -1707,7 +2016,14 @@ function renderUploadPageFolders() {
 
 function calculateProfileStats() {
     let totalBytes = 0;
-    window.allFiles.forEach(f => { totalBytes += (f.file_size || 0); });
+    const countedPaths = new Set();
+    window.allFiles.forEach(f => {
+        if (f.is_deleted) return;
+        const key = f.file_path || f.id;
+        if (countedPaths.has(key)) return;
+        countedPaths.add(key);
+        totalBytes += (f.file_size || 0);
+    });
 
     let totalStorageStr = "0 MB";
     if (totalBytes > 0) {
@@ -2011,11 +2327,13 @@ window.renderAllFiles = function () {
 
     let filtered = window.allFiles.filter(f => !f.is_deleted);
 
-    // Folder Filter:
-    // When inside a folder, show ONLY files in that folder.
-    // When in main Files view (no folder selected), show ALL files regardless of folder_id.
+    // Folder filter: inside a folder → that folder's files only.
+    // App root "View Files" → root-level files only (folders live under View Folders).
+    // Web root → all files (legacy behaviour).
     if (window.currentFolderId) {
         filtered = filtered.filter(f => f.folder_id === window.currentFolderId);
+    } else if (isCapacitorApp()) {
+        filtered = filtered.filter(f => !f.folder_id);
     }
 
     window.currentFilteredFiles = filtered;
@@ -2203,11 +2521,37 @@ function renderFileSet(files, container, showCheckboxes) {
                 return;
             }
 
-            const isApp = window.Capacitor !== undefined;
-            if (isApp) {
-                openFileNative(file.file_name, publicUrl, file.file_type);
+            if (e.target.closest('button, a, input, .file-actions, .m-file-menu-trigger, .file-checkbox')) {
+                return;
             }
+
+            openFilePreview(file);
         });
+
+        // Long press on file card (Android app only)
+        if (window.Capacitor !== undefined) {
+            let lpTimer = null;
+            card.addEventListener('touchstart', () => {
+                lpTimer = setTimeout(() => {
+                    lpTimer = null;
+                    window._lpCurrentFile = file;
+                    const modal = document.getElementById('app-longpress-modal');
+                    const nameEl = document.getElementById('lp-file-name');
+                    if (nameEl) nameEl.textContent = file.file_name;
+                    if (modal) { modal.style.display = 'flex'; modal.classList.remove('hidden'); }
+                    if (window.lucide) window.lucide.createIcons();
+                }, 500);
+            }, { passive: true });
+            card.addEventListener('touchmove', () => {
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+            }, { passive: true });
+            card.addEventListener('touchend', () => {
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+            });
+            card.addEventListener('touchcancel', () => {
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+            });
+        }
 
         container.appendChild(card);
     });
@@ -2271,12 +2615,12 @@ window.openMobileFileDrawer = function (e, fileId, fileName, publicUrl, filePath
         
         <!-- Actions List -->
         <div style="display: flex; flex-direction: column; gap: 8px;">
-            <a href="${publicUrl}" download="${fileName}" target="_blank" style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; text-decoration: none; color: #1e293b; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; cursor: pointer;">
+            <button type="button" onclick="window.appDownloadFile('${fileName.replace(/'/g, "\\'")}', '${publicUrl}'); closeMobileFileDrawer();" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; cursor: pointer;">
                 <span style="width: 32px; height: 32px; border-radius: 50%; background: #e0f2f1; display: flex; align-items: center; justify-content: center; color: #4DB6AC;">
                     <i data-lucide="download" style="width: 16px; height: 16px;"></i>
                 </span>
                 Download File
-            </a>
+            </button>
 
             <button onclick="showQRCode('${fileName.replace(/'/g, "\\'")}', '${publicUrl}'); closeMobileFileDrawer();" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; cursor: pointer;">
                 <span style="width: 32px; height: 32px; border-radius: 50%; background: #f3e8ff; display: flex; align-items: center; justify-content: center; color: #a855f7;">
@@ -2285,7 +2629,7 @@ window.openMobileFileDrawer = function (e, fileId, fileName, publicUrl, filePath
                 Generate QR Code
             </button>
             
-            <button onclick="shareFile('${fileName.replace(/'/g, "\\'")}', '${publicUrl}'); closeMobileFileDrawer();" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; cursor: pointer;">
+            <button onclick="shareFile('${fileName.replace(/'/g, "\\'")}', '${publicUrl}', ''); closeMobileFileDrawer();" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; cursor: pointer;">
                 <span style="width: 32px; height: 32px; border-radius: 50%; background: #e0f2fe; display: flex; align-items: center; justify-content: center; color: #0ea5e9;">
                     <i data-lucide="share-2" style="width: 16px; height: 16px;"></i>
                 </span>
@@ -2598,6 +2942,21 @@ window.renderFolders = function () {
     if (!foldersGrid) return;
 
     renderBreadcrumbs();
+
+    // In the native app, folders are managed on View Folders — not inside View Files.
+    if (isCapacitorApp()) {
+        foldersGrid.innerHTML = '';
+        foldersGrid.style.display = 'none';
+        if (foldersDivider) foldersDivider.style.display = 'none';
+        if (window.currentFolderId) {
+            subfolderCreateBtn?.classList.remove('hidden');
+            folderUploadTrigger?.classList.remove('hidden');
+        } else {
+            subfolderCreateBtn?.classList.add('hidden');
+            folderUploadTrigger?.classList.add('hidden');
+        }
+        return;
+    }
 
     if (window.currentFolderId) {
         subfolderCreateBtn?.classList.remove('hidden');
@@ -2915,9 +3274,8 @@ window.enterFolder = function (id) {
     document.querySelectorAll('.nav-btn, .nav-item').forEach(b => b.classList.remove('active'));
     document.querySelectorAll(`[data-target="page-files"]`).forEach(b => b.classList.add('active'));
 
-    // Render files and folders
     renderAllFiles();
-    if (window.renderFolders) window.renderFolders();
+    if (!isCapacitorApp() && window.renderFolders) window.renderFolders();
     if (window.lucide) window.lucide.createIcons();
 };
 
@@ -2933,8 +3291,10 @@ window.openMobileImportModal = function() {
     const countSpan = document.getElementById('m-import-count');
     if (countSpan) countSpan.textContent = '0';
 
-    // Filter files that do NOT belong to the current folder
-    const importable = window.allFiles.filter(f => f.folder_id !== window.currentFolderId);
+    // Files not already in this folder (move, not duplicate)
+    const importable = window.allFiles.filter(f =>
+        !f.is_deleted && String(f.folder_id || '') !== String(window.currentFolderId || '')
+    );
 
     if (importable.length === 0) {
         listContainer.innerHTML = '<p style="text-align: center; color: #64748b; font-size: 13px; padding: 20px 0; font-family: \'Poppins\', sans-serif;">No existing files available to import.</p>';
@@ -3649,6 +4009,368 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === modal) modal.classList.add('hidden');
     });
 });
+
+// ════════════════════════════════════════════════════════════════
+//  APP-ONLY FEATURES (Android / Capacitor)
+//  All gated behind window.Capacitor !== undefined
+// ════════════════════════════════════════════════════════════════
+
+(function () {
+    const isApp = window.Capacitor !== undefined;
+    if (!isApp) return;
+
+    // ── Feature 3: Android Back Button ──
+    function _closeModal(el) {
+        if (!el) return;
+        el.classList.add('hidden');
+        el.style.display = 'none';
+    }
+
+    function _isModalOpen(el) {
+        if (!el) return false;
+        return !el.classList.contains('hidden') && el.style.display !== 'none';
+    }
+
+    App.addListener('backButton', () => {
+        const filePreviewModal = document.getElementById('file-preview-modal');
+        if (filePreviewModal && !filePreviewModal.classList.contains('hidden')) {
+            closeFilePreviewModal();
+            return;
+        }
+
+        const modals = [
+            document.getElementById('app-longpress-modal'),
+            document.getElementById('app-move-modal'),
+            document.getElementById('folder-modal'),
+            document.getElementById('folder-delete-modal'),
+            document.getElementById('upload-folder-modal'),
+            document.getElementById('delete-account-modal'),
+            document.getElementById('version-history-modal'),
+            document.getElementById('qr-modal-overlay'),
+            document.getElementById('m-import-files-modal'),
+            document.getElementById('m-upload-options-modal'),
+            document.getElementById('d-upload-options-modal'),
+        ];
+        for (const el of modals) {
+            if (_isModalOpen(el)) {
+                _closeModal(el);
+                return;
+            }
+        }
+
+        const dlEl = document.getElementById('app-download-progress');
+        if (dlEl && !dlEl.classList.contains('hidden') && dlEl.style.display !== 'none') {
+            dlEl.classList.add('hidden');
+            dlEl.style.display = 'none';
+            return;
+        }
+
+        // Navigation
+        const activeSection = document.querySelector('.page-section.active-page');
+        const sectionId = activeSection?.id || '';
+
+        if (window.currentFolderId) {
+            window.currentFolderId = null;
+            renderAllFiles();
+            if (window.renderFolders) window.renderFolders();
+            if (window.lucide) window.lucide.createIcons();
+        } else if (sectionId !== 'page-upload') {
+            // Go to Home tab
+            document.querySelectorAll('.nav-btn, .nav-item').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('[data-target="page-upload"]').forEach(b => b.classList.add('active'));
+            document.querySelectorAll('.page-section').forEach(sec => {
+                sec.classList.remove('active-page');
+                sec.classList.add('hidden-section');
+            });
+            const uploadSection = document.getElementById('page-upload');
+            if (uploadSection) {
+                uploadSection.classList.remove('hidden-section');
+                uploadSection.classList.add('active-page');
+            }
+        } else {
+            // In Home tab → ask to exit
+            if (confirm('Exit app?')) {
+                App.exitApp();
+            }
+        }
+    });
+
+    // ── Feature 5: Share App Button ──
+    document.getElementById('share-app-btn')?.addEventListener('click', () => {
+        const url = 'https://github.com/srinivas-2898/filehub/releases/tag/v1.0';
+        if (navigator.share) {
+            navigator.share({ title: 'GJS File Hub', text: 'Download GJS File Hub!', url }).catch(() => {});
+        } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(url).then(() => showToast('Link copied!'));
+        } else {
+            window.open(url, '_blank');
+        }
+    });
+
+    // ── Feature 1: Pull to Refresh ──
+    let ptrState = { startY: 0, pulling: false, triggered: false };
+    const ptrIndicator = document.getElementById('ptr-indicator');
+    const ptrIcon = document.getElementById('ptr-icon');
+    const ptrText = document.getElementById('ptr-text');
+    const fileListEl = document.getElementById('file-list');
+
+    if (fileListEl) {
+        fileListEl.addEventListener('touchstart', (e) => {
+            if (document.scrollingElement.scrollTop > 4) return;
+            ptrState.startY = e.touches[0].clientY;
+            ptrState.pulling = true;
+            ptrState.triggered = false;
+        }, { passive: true });
+
+        fileListEl.addEventListener('touchmove', (e) => {
+            if (!ptrState.pulling) return;
+            const dist = e.touches[0].clientY - ptrState.startY;
+            if (dist > 0 && document.scrollingElement.scrollTop <= 4) {
+                if (ptrIndicator) {
+                    ptrIndicator.style.display = '';
+                    ptrIndicator.style.opacity = Math.min(1, dist / 100);
+                }
+                if (dist > 70) {
+                    if (ptrIcon) ptrIcon.style.transform = 'rotate(180deg)';
+                    if (ptrText) ptrText.textContent = 'Release to refresh';
+                    ptrState.triggered = true;
+                } else {
+                    if (ptrIcon) ptrIcon.style.transform = 'rotate(0deg)';
+                    if (ptrText) ptrText.textContent = 'Pull to refresh';
+                    ptrState.triggered = false;
+                }
+            }
+        }, { passive: true });
+
+        fileListEl.addEventListener('touchend', () => {
+            ptrState.pulling = false;
+            if (ptrIndicator) {
+                ptrIndicator.style.opacity = '0';
+                setTimeout(() => { if (ptrIndicator) ptrIndicator.style.display = 'none'; }, 300);
+            }
+            if (ptrIcon) ptrIcon.style.transform = 'rotate(0deg)';
+            if (ptrText) ptrText.textContent = 'Pull to refresh';
+            if (ptrState.triggered) {
+                ptrState.triggered = false;
+                if (ptrText) ptrText.textContent = 'Refreshing...';
+                fetchFiles();
+                showToast('Files refreshed');
+            }
+        }, { passive: true });
+    }
+
+    // ── Feature 2 (cont.): Long Press Action Modal Wiring ──
+    window._lpCurrentFile = null;
+
+    const lpModal = document.getElementById('app-longpress-modal');
+    document.getElementById('lp-cancel-btn')?.addEventListener('click', () => {
+        if (lpModal) { lpModal.classList.add('hidden'); lpModal.style.display = 'none'; }
+    });
+    if (lpModal) {
+        lpModal.addEventListener('click', (e) => {
+            if (e.target === lpModal) { lpModal.classList.add('hidden'); lpModal.style.display = 'none'; }
+        });
+        lpModal.querySelectorAll('.lp-action').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                const file = window._lpCurrentFile;
+                if (!file) return;
+                lpModal.classList.add('hidden');
+                lpModal.style.display = 'none';
+
+                const { data } = supabaseClient.storage.from('upload system').getPublicUrl(file.file_path);
+                const publicUrl = data.publicUrl;
+
+                switch (action) {
+                    case 'open':
+                        openAppFileViewer(file);
+                        break;
+                    case 'share':
+                        shareFile(file.file_name, publicUrl, file.file_type);
+                        break;
+                    case 'download':
+                        downloadFileWithProgress(file.file_name, publicUrl);
+                        break;
+                    case 'rename':
+                        renameFilePrompt(file.id, file.file_name);
+                        break;
+                    case 'move':
+                        openAppMoveFolderModal(file);
+                        break;
+                    case 'delete':
+                        deleteFile(file.id, file.file_path);
+                        break;
+                }
+            });
+        });
+    }
+
+    // ── Feature 4: Download File with Progress ──
+    window.downloadFileWithProgress = async function downloadFileWithProgress(fileName, url) {
+        if (!url) return;
+        const dlOverlay = document.getElementById('app-download-progress');
+        const dlBar = document.getElementById('dl-progress-bar');
+        const dlPct = document.getElementById('dl-progress-pct');
+        const dlStatus = document.getElementById('dl-progress-status');
+        const dlFilename = document.getElementById('dl-progress-filename');
+
+        if (dlOverlay) { dlOverlay.classList.remove('hidden'); dlOverlay.style.display = ''; }
+        if (dlFilename) dlFilename.textContent = fileName;
+        if (dlStatus) dlStatus.textContent = 'Starting download...';
+        if (dlBar) dlBar.style.width = '0%';
+        if (dlPct) dlPct.textContent = '0%';
+
+        try {
+            const safeName = (fileName || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
+            const path = `FileHub/${safeName}`;
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Download failed (${response.status})`);
+
+            const total = parseInt(response.headers.get('Content-Length') || '0', 10);
+            let loaded = 0;
+            const reader = response.body.getReader();
+            const chunks = [];
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                loaded += value.length;
+                if (total) {
+                    const pct = Math.round((loaded / total) * 100);
+                    if (dlBar) dlBar.style.width = pct + '%';
+                    if (dlPct) dlPct.textContent = pct + '%';
+                    if (dlStatus) dlStatus.textContent = `${Math.round(loaded / 1024)} KB / ${Math.round(total / 1024)} KB`;
+                } else {
+                    if (dlStatus) dlStatus.textContent = `${Math.round(loaded / 1024)} KB downloaded`;
+                }
+            }
+
+            const blob = new Blob(chunks);
+            const base64 = await new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onloadend = () => {
+                    const res = r.result;
+                    if (typeof res !== 'string') { reject(new Error('Could not read file data')); return; }
+                    const comma = res.indexOf(',');
+                    resolve(comma >= 0 ? res.slice(comma + 1) : res);
+                };
+                r.onerror = () => reject(r.error || new Error('Could not read file data'));
+                r.readAsDataURL(blob);
+            });
+
+            await Filesystem.writeFile({ path, data: base64, directory: Directory.External, recursive: true });
+
+            if (dlStatus) dlStatus.textContent = 'Download complete!';
+            if (dlBar) dlBar.style.width = '100%';
+            if (dlPct) dlPct.textContent = '100%';
+            showToast(`Saved to FileHub/${safeName}`);
+
+            // Notification bar completion
+            try {
+                const mod = await import('@capacitor/local-notifications');
+                await mod.LocalNotifications.schedule({
+                    notifications: [{
+                        title: 'Download Complete',
+                        body: `${fileName} saved`,
+                        id: Date.now(),
+                        smallIcon: 'ic_stat_icon_configurable',
+                        iconColor: '#4DB6AC'
+                    }]
+                });
+            } catch (_) {}
+
+            setTimeout(() => { if (dlOverlay) { dlOverlay.classList.add('hidden'); dlOverlay.style.display = 'none'; } }, 2500);
+        } catch (err) {
+            console.error('Download progress error:', err);
+            if (dlStatus) dlStatus.textContent = `Failed: ${err.message || err}`;
+            if (dlBar) dlBar.style.background = '#ef4444';
+            setTimeout(() => { if (dlOverlay) { dlOverlay.classList.add('hidden'); dlOverlay.style.display = 'none'; } }, 3000);
+        }
+    };
+
+    // ── Move to Folder (used by long press action) ──
+    let _moveFileRef = null;
+
+    window.openAppMoveFolderModal = function (file) {
+        _moveFileRef = file;
+        const list = document.getElementById('app-move-folder-list');
+        const confirmBtn = document.getElementById('app-move-confirm');
+        const modal = document.getElementById('app-move-modal');
+        if (!list || !modal) return;
+
+        list.innerHTML = '<p style="text-align:center;color:#94a3b8;font-size:13px;padding:12px 0;">No folders available</p>';
+        if (confirmBtn) confirmBtn.disabled = true;
+
+        const folders = window.folders || [];
+        if (folders.length === 0) {
+            list.innerHTML = '<p style="text-align:center;color:#94a3b8;font-size:13px;padding:12px 0;">Create a folder first</p>';
+        } else {
+            list.innerHTML = '';
+            folders.forEach(f => {
+                const item = document.createElement('div');
+                item.dataset.folderId = f.id;
+                item.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:#f8fafc;border:1px solid #f1f5f9;cursor:pointer;font-family:\'Poppins\',sans-serif;transition:all 0.2s;';
+                item.innerHTML = `
+                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(77,182,172,0.1);display:flex;align-items:center;justify-content:center;color:#4DB6AC;flex-shrink:0;">
+                        <i data-lucide="folder" style="width:18px;height:18px;"></i>
+                    </div>
+                    <span style="flex:1;font-size:13px;font-weight:700;color:#1e293b;">${f.folder_name}</span>
+                    <div class="move-radio" style="width:20px;height:20px;border-radius:50%;border:2px solid #cbd5e1;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s;"></div>
+                `;
+                item.addEventListener('click', () => {
+                    list.querySelectorAll('[data-folder-id]').forEach(el => {
+                        el.style.borderColor = '#f1f5f9';
+                        el.style.background = '#f8fafc';
+                        const radio = el.querySelector('.move-radio');
+                        if (radio) { radio.style.borderColor = '#cbd5e1'; radio.style.background = 'transparent'; }
+                    });
+                    item.style.borderColor = '#4DB6AC';
+                    item.style.background = 'rgba(77,182,172,0.05)';
+                    const radio = item.querySelector('.move-radio');
+                    if (radio) { radio.style.borderColor = '#4DB6AC'; radio.style.background = '#4DB6AC'; }
+                    if (confirmBtn) confirmBtn.disabled = false;
+                    confirmBtn.dataset.folderId = f.id;
+                });
+                list.appendChild(item);
+            });
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    };
+
+    document.getElementById('app-move-cancel')?.addEventListener('click', () => {
+        const modal = document.getElementById('app-move-modal');
+        if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
+    });
+
+    document.getElementById('app-move-confirm')?.addEventListener('click', async () => {
+        const btn = document.getElementById('app-move-confirm');
+        const folderId = btn?.dataset.folderId;
+        if (!folderId || !_moveFileRef) return;
+
+        try {
+            const { error } = await supabaseClient
+                .from('Files')
+                .update({ folder_id: folderId })
+                .eq('id', _moveFileRef.id);
+            if (error) throw error;
+
+            showToast('File moved successfully');
+            fetchFiles();
+        } catch (err) {
+            console.error('Move failed:', err);
+            alert('Failed to move file');
+        }
+
+        const modal = document.getElementById('app-move-modal');
+        if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
+        _moveFileRef = null;
+    });
+})();
 
 
 
