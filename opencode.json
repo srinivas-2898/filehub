@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "opencode-antigravity-auth"
+  ],
+  "provider": {
+    "antigravity": {
+      "models": {
+        "antigravity/claude-3-sonnet": {
+          "id": "antigravity/claude-3-sonnet",
+          "name": "Claude 3 Sonnet (Antigravity)"
+        },
+        "antigravity/claude-3-opus": {
+          "id": "antigravity/claude-3-opus",
+          "name": "Claude 3 Opus (Antigravity)"
+        },
+        "antigravity/claude-3-haiku": {
+          "id": "antigravity/claude-3-haiku",
+          "name": "Claude 3 Haiku (Antigravity)"
+        }
+      }
+    }
+  }
+}

@@ -65,15 +65,50 @@ export async function appDownloadFile(fileName, url) {
 export async function appShareFile(fileName, url) {
     if (!isCapacitorApp() || !url) return;
     try {
+        // Step 1: Download file to temp storage
+        const safeName = sanitizeFileNameForFs(fileName);
+        const tempPath = `temp_share/${safeName}`;
+        toast('Preparing file…');
+        await saveUrlToFilesystem(url, tempPath, Directory.Cache);
+
+        // Step 2: Get the file URI from cache
+        const fileResult = await Filesystem.getUri({
+            path: tempPath,
+            directory: Directory.Cache
+        });
+
+        // Step 3: Share the actual file using file URI
         await Share.share({
             title: fileName || 'File',
-            url: url,
+            url: fileResult.uri,
             dialogTitle: 'Share file'
         });
+
+        // Step 4: Clean up temp file after sharing
+        try {
+            await Filesystem.deleteFile({
+                path: tempPath,
+                directory: Directory.Cache
+            });
+        } catch (cleanupErr) {
+            console.warn('Temp file cleanup failed:', cleanupErr);
+        }
     } catch (err) {
+        // Fallback: share URL if file preparation fails
         if (err?.message !== 'Share canceled') {
-            console.error('App share failed:', err);
-            alert(`Share failed: ${err.message || err}`);
+            console.error('App share failed, falling back to URL share:', err);
+            try {
+                await Share.share({
+                    title: fileName || 'File',
+                    url: url,
+                    dialogTitle: 'Share file'
+                });
+            } catch (fallbackErr) {
+                if (fallbackErr?.message !== 'Share canceled') {
+                    console.error('App URL share fallback also failed:', fallbackErr);
+                    alert(`Share failed: ${fallbackErr.message || fallbackErr}`);
+                }
+            }
         }
     }
 }

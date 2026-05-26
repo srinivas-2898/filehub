@@ -40,6 +40,7 @@ window.undoTimeoutId = null;
 
 const APP_VERSION = 'v1.0';
 const APP_UPDATE_URL = 'https://github.com/srinivas-2898/filehub/releases/tag/v1.0';
+const APP_APK_DOWNLOAD_URL = 'https://github.com/srinivas-2898/filehub/releases/download/v1.0/GJS.File.Hub.apk';
 
 function checkAppUpdateNotification() {
     const lastSeen = localStorage.getItem('app_version_seen');
@@ -1070,15 +1071,47 @@ function setupProfilePage() {
 // --- Realtime Logic ---
 const realtimeToast = document.getElementById('realtime-toast');
 
-function showToast(message) {
+function showToast(message, type = 'info') {
+    const types = { success: '✅', error: '❌', info: 'ℹ️' };
+    const icon = types[type] || types.info;
     if (realtimeToast) {
         const msgSpan = realtimeToast.querySelector('.toast-msg');
+        const iconSpan = realtimeToast.querySelector('.toast-icon');
         if (msgSpan) msgSpan.textContent = message || 'File list updated';
+        if (iconSpan) iconSpan.textContent = icon;
         realtimeToast.classList.remove('hidden');
+        realtimeToast.classList.remove('success');
+        if (type === 'success') realtimeToast.classList.add('success');
         setTimeout(() => {
             realtimeToast.classList.add('hidden');
         }, 3000);
+        return;
     }
+    // Fallback: create a temporary toast element
+    const toast = document.createElement('div');
+    toast.style.cssText = `position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'}; color: white; padding: 12px 24px; border-radius: 25px; font-size: 14px; font-family: Poppins, sans-serif; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3); text-align: center; min-width: 200px;`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+async function ensurePdfJsLoaded() {
+    if (window.pdfjsLib) return;
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.crossOrigin = 'anonymous';
+        script.onload = () => {
+            if (window.pdfjsLib) {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                resolve();
+            } else {
+                reject(new Error('pdfjsLib failed to load'));
+            }
+        };
+        script.onerror = () => reject(new Error('Could not load PDF.js'));
+        document.head.appendChild(script);
+    });
 }
 
 const FILE_VIEW_BUCKET = 'upload system';
@@ -1194,24 +1227,66 @@ function closeFilePreviewModal() {
     _filePreviewState = null;
 }
 
-function downloadPreviewFile(fileName, url) {
+async function downloadPreviewFile(fileName, url) {
     if (!url) return;
-    if (isCapacitorApp() && typeof window.downloadFileWithProgress === 'function') {
-        window.downloadFileWithProgress(fileName, url);
-        return;
+    // Delegate to unified download function
+    await downloadFile(url, fileName);
+}
+
+async function downloadFile(fileUrl, fileName) {
+    try {
+        // If running inside Capacitor native app, use native handlers if available
+        if (isCapacitorApp()) {
+            if (typeof window.downloadFileWithProgress === 'function') {
+                window.downloadFileWithProgress(fileName, fileUrl);
+                return;
+            }
+            if (typeof window.appDownloadFile === 'function') {
+                window.appDownloadFile(fileName, fileUrl);
+                return;
+            }
+        }
+
+        showToast('Downloading... please wait', 'info');
+
+        const response = await fetch(fileUrl);
+
+        if (!response.ok) {
+            throw new Error('Download failed');
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+
+        showToast('File downloaded successfully!', 'success');
+
+    } catch (error) {
+        showToast('Download failed. Please try again.', 'error');
+        console.error('Download error:', error);
     }
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName || 'download';
-    link.target = '_blank';
-    link.rel = 'noopener';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
 }
 
 async function renderFilePreviewContent(bodyEl, category, publicUrl, file) {
     const fileName = file.file_name || 'File';
+    bodyEl.classList.remove('pdf-viewer');
+    bodyEl.style.background = '';
+    bodyEl.style.padding = '';
+    bodyEl.style.alignItems = '';
+    bodyEl.style.justifyContent = '';
+    bodyEl.style.overflowX = '';
+    bodyEl.style.overflowY = '';
 
     if (category === 'image') {
         bodyEl.innerHTML = `
@@ -1224,8 +1299,51 @@ async function renderFilePreviewContent(bodyEl, category, publicUrl, file) {
     }
 
     if (category === 'pdf') {
-        const embedUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(publicUrl)}&embedded=true`;
-        bodyEl.innerHTML = `<iframe class="file-preview-pdf" src="${embedUrl}" title="${fileName.replace(/"/g, '&quot;')}"></iframe>`;
+        bodyEl.classList.add('pdf-viewer');
+        bodyEl.innerHTML = `<div id="pdfjs-viewer" class="pdfjs-viewer"></div>`;
+        bodyEl.style.background = '#fff';
+        bodyEl.style.padding = '0';
+        bodyEl.style.alignItems = 'stretch';
+        bodyEl.style.justifyContent = 'flex-start';
+        bodyEl.style.overflowX = 'hidden';
+        bodyEl.style.overflowY = 'auto';
+
+        const viewerContainer = bodyEl.querySelector('#pdfjs-viewer');
+        if (!viewerContainer) return;
+        viewerContainer.innerHTML = `
+            <div class="file-preview-loading">
+                <div class="file-preview-spinner"></div>
+                <p>Loading PDF…</p>
+            </div>`;
+
+        try {
+            await ensurePdfJsLoaded();
+            const pdfjsLib = window.pdfjsLib;
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            const loadingTask = pdfjsLib.getDocument(publicUrl);
+            const pdf = await loadingTask.promise;
+
+            viewerContainer.innerHTML = '';
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1 });
+                const scale = window.innerWidth / viewport.width;
+                const scaledViewport = page.getViewport({ scale });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = scaledViewport.width;
+                canvas.height = scaledViewport.height;
+                canvas.style.width = `${window.innerWidth}px`;
+                canvas.style.height = `${scaledViewport.height}px`;
+                canvas.className = 'pdf-page-canvas';
+                viewerContainer.appendChild(canvas);
+                await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
+            }
+        } catch (err) {
+            console.error('PDF render failed:', err);
+            viewerContainer.innerHTML = `<div class="file-preview-fallback"><i data-lucide="alert-triangle"></i><p>Unable to render PDF preview.</p><p>Please download the file to view it.</p></div>`;
+            if (window.lucide) window.lucide.createIcons();
+        }
         return;
     }
 
@@ -1362,6 +1480,8 @@ async function showFilePreviewModal(file, publicUrl, category) {
     if (!modal || !titleEl || !bodyEl) return;
 
     modal.classList.remove('fullscreen');
+    modal.classList.toggle('preview-show-zoom', category !== 'image' && category !== 'audio');
+    modal.classList.toggle('preview-show-share', category !== 'document');
     const fsBtn = document.getElementById('file-preview-fullscreen-btn');
     if (fsBtn) {
         fsBtn.innerHTML = '<i data-lucide="maximize" style="width:18px;height:18px;"></i>';
@@ -1384,7 +1504,12 @@ async function showFilePreviewModal(file, publicUrl, category) {
     document.body.classList.add('file-preview-open');
 
     if (shareBtn) {
-        shareBtn.style.display = category === 'document' ? 'none' : '';
+        shareBtn.style.display = category === 'document' ? 'none' : 'flex';
+    }
+
+    const downloadBtn = document.getElementById('file-preview-download');
+    if (downloadBtn) {
+        downloadBtn.style.display = 'flex';
     }
 
     await renderFilePreviewContent(bodyEl, category, publicUrl, file);
@@ -1461,11 +1586,35 @@ window.shareFile = async function (fileName, url, fileType) {
         return;
     }
 
-    const shareMessage = `Check out this file I shared from GJS File Hub: ${url}`;
-
-    // Mobile: use native Web Share API
+    // Try Web Share API with actual file blob
     if (navigator.share) {
         try {
+            // Fetch file as blob
+            const response = await fetch(url, { mode: 'cors' });
+            if (response.ok) {
+                const blob = await response.blob();
+                const fileObject = new File([blob], fileName || 'file', {
+                    type: blob.type || fileType || 'application/octet-stream'
+                });
+
+                // Check if Web Share API supports sharing files and attempt file sharing
+                const canShareFiles = navigator.canShare ? navigator.canShare({ files: [fileObject] }) : true;
+                if (canShareFiles) {
+                    await navigator.share({
+                        files: [fileObject],
+                        title: fileName
+                    });
+                    return;
+                }
+            }
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            console.warn('File blob share failed, falling back to URL share:', err);
+        }
+
+        // Fallback: share URL
+        try {
+            const shareMessage = `Check out this file I shared from GJS File Hub: ${url}`;
             await navigator.share({
                 title: fileName,
                 text: shareMessage,
@@ -1478,6 +1627,8 @@ window.shareFile = async function (fileName, url, fileType) {
         }
         return;
     }
+
+    const shareMessage = `Check out this file I shared from GJS File Hub: ${url}`;
 
     // Desktop: show share popup
     const existingPopup = document.getElementById('share-popup-overlay');
@@ -2615,7 +2766,7 @@ window.openMobileFileDrawer = function (e, fileId, fileName, publicUrl, filePath
         
         <!-- Actions List -->
         <div style="display: flex; flex-direction: column; gap: 8px;">
-            <button type="button" onclick="window.appDownloadFile('${fileName.replace(/'/g, "\\'")}', '${publicUrl}'); closeMobileFileDrawer();" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; cursor: pointer;">
+            <button type="button" onclick="downloadFile('${publicUrl}', '${fileName.replace(/'/g, "\\'")}'); closeMobileFileDrawer();" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; color: #1e293b; font-size: 14px; font-weight: 700; font-family: 'Poppins', sans-serif; cursor: pointer;">
                 <span style="width: 32px; height: 32px; border-radius: 50%; background: #e0f2f1; display: flex; align-items: center; justify-content: center; color: #4DB6AC;">
                     <i data-lucide="download" style="width: 16px; height: 16px;"></i>
                 </span>
@@ -4095,18 +4246,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ── Feature 5: Share App Button ──
-    document.getElementById('share-app-btn')?.addEventListener('click', () => {
-        const url = 'https://github.com/srinivas-2898/filehub/releases/tag/v1.0';
-        if (navigator.share) {
-            navigator.share({ title: 'GJS File Hub', text: 'Download GJS File Hub!', url }).catch(() => {});
-        } else if (navigator.clipboard) {
-            navigator.clipboard.writeText(url).then(() => showToast('Link copied!'));
-        } else {
-            window.open(url, '_blank');
-        }
-    });
-
     // ── Feature 1: Pull to Refresh ──
     let ptrState = { startY: 0, pulling: false, triggered: false };
     const ptrIndicator = document.getElementById('ptr-indicator');
@@ -4189,7 +4328,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         shareFile(file.file_name, publicUrl, file.file_type);
                         break;
                     case 'download':
-                        downloadFileWithProgress(file.file_name, publicUrl);
+                        downloadFile(publicUrl, file.file_name);
                         break;
                     case 'rename':
                         renameFilePrompt(file.id, file.file_name);
@@ -4208,6 +4347,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Feature 4: Download File with Progress ──
     window.downloadFileWithProgress = async function downloadFileWithProgress(fileName, url) {
         if (!url) return;
+        showToast('Downloading... please wait', '⬇️');
         const dlOverlay = document.getElementById('app-download-progress');
         const dlBar = document.getElementById('dl-progress-bar');
         const dlPct = document.getElementById('dl-progress-pct');
@@ -4265,7 +4405,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dlStatus) dlStatus.textContent = 'Download complete!';
             if (dlBar) dlBar.style.width = '100%';
             if (dlPct) dlPct.textContent = '100%';
-            showToast(`Saved to FileHub/${safeName}`);
+            showToast('File downloaded successfully!', '✅', 'success');
 
             // Notification bar completion
             try {
@@ -4289,7 +4429,6 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => { if (dlOverlay) { dlOverlay.classList.add('hidden'); dlOverlay.style.display = 'none'; } }, 3000);
         }
     };
-
     // ── Move to Folder (used by long press action) ──
     let _moveFileRef = null;
 

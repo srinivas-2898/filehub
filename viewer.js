@@ -68,7 +68,7 @@ async function renderPreview(url, fileType, fileName) {
     }
     if (type.includes('pdf') || name.endsWith('.pdf')) {
         const embedUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
-        container.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
+        container.innerHTML = `<iframe src="${embedUrl}" allowfullscreen style="width:100vw; height:100vh;" class="file-preview-pdf"></iframe>`;
         return;
     }
     if (type.startsWith('text/') || /\.(txt|md|json|xml|html|css|js|log|csv)$/i.test(name)) {
