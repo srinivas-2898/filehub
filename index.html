@@ -28,6 +28,19 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        html {
+            background: #FF6B35;
+        }
+        body {
+            background: linear-gradient(135deg, #FF6B35, #1565C0);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        body.loaded {
+            opacity: 1;
+        }
+    </style>
 </head>
 <body>
     <script>
@@ -55,7 +68,7 @@
         </div>
 
     <!-- Mobile Download App Button for Auth Page -->
-    <a href="download.html" class="m-download-app-btn" style="position: fixed; top: 20px; right: 20px; z-index: 1000;" title="Download App">
+    <a href="https://github.com/srinivas-2898/filehub/releases/download/v1.0/GJS.File.Hub.apk" class="m-download-app-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;" title="Download App">
         📱 <span class="btn-text-full">Download App</span><span class="btn-text-short">App</span>
     </a>
 
@@ -214,10 +227,11 @@
                             <i data-lucide="check-circle" class="success-icon"></i>
                         </div>
                         <h2 class="welcome-text">Account Created!</h2>
-                        <div class="instruction-box">
-                            <p>Check your email inbox to confirm your account.</p>
+                        <div class="instruction-box" style="margin-bottom: 20px;">
+                            <p style="font-size: 14px; line-height: 1.5; color: var(--text-main);">Account created! Please check your email inbox and click the verification link to activate your account.</p>
                         </div>
-                        <button type="button" class="primary-btn btn-anim" id="success-to-login">BACK TO LOGIN</button>
+                        <button type="button" class="primary-btn btn-anim" id="success-to-login" style="margin-bottom: 12px;">BACK TO LOGIN</button>
+                        <button type="button" class="outline-btn" id="resend-email-btn" style="width: 100%; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer;">Resend Verification Email</button>
                     </div>
                 </div>
                 

@@ -5,6 +5,10 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { isCapacitorApp, APP_AUTH_REDIRECT, handleOAuthRedirectUrl } from './platform.js';
 import { appDownloadFile, appShareFile } from './app-native-files.js';
 
+document.addEventListener('DOMContentLoaded', () => {
+    document.body.classList.add('loaded');
+});
+
 window.appDownloadFile = appDownloadFile;
 window.appShareFile = appShareFile;
 
@@ -324,22 +328,31 @@ if (togglePasswordBtn && loginPassword) {
 
 // Check active session on load
 async function checkUser() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session) {
-        if (IS_INDEX) {
-            if (authLoading) authLoading.classList.remove('hidden');
-            window.location.replace('dashboard.html');
+    try {
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        if (error) throw error;
+        
+        if (session) {
+            if (IS_INDEX) {
+                if (authLoading) authLoading.classList.remove('hidden');
+                window.location.replace('dashboard.html');
+            } else {
+                showMainApp(session.user);
+            }
         } else {
-            showMainApp(session.user);
+            // If we were waiting for a token but it's not there, hide loader
+            if (authLoading) authLoading.classList.add('hidden');
+            if (IS_DASHBOARD || IS_PROFILE) {
+                window.location.replace('index.html');
+            } else {
+                showAuthScreen();
+            }
         }
-    } else {
-        // If we were waiting for a token but it's not there, hide loader
+    } catch (err) {
+        console.error('Session error:', err);
         if (authLoading) authLoading.classList.add('hidden');
-        if (IS_DASHBOARD || IS_PROFILE) {
-            window.location.replace('index.html');
-        } else {
-            showAuthScreen();
-        }
+        if (IS_DASHBOARD || IS_PROFILE) window.location.replace('index.html');
+        else showAuthScreen();
     }
 }
 
@@ -457,26 +470,61 @@ if (signupForm) {
         btn.textContent = 'Processing...';
 
         try {
+            const email = signupEmail.value;
+            window.lastSignupEmail = email;
             const { data, error } = await supabaseClient.auth.signUp({
-                email: signupEmail.value,
+                email: email,
                 password: signupPassword.value,
                 options: {
+                    emailRedirectTo: 'https://file-upload-system-27636.web.app/dashboard.html',
                     data: {
                         full_name: signupName.value
                     }
                 }
             });
 
-            if (error) throw error;
-
-            // Show success message regardless of auto-login session
-            // This ensures they see the "Confirm Email" instruction as requested
-            showSuccessView();
+            if (error) {
+                authError.textContent = error.message;
+            } else {
+                showSuccessView();
+            }
         } catch (err) {
             authError.textContent = err.message;
         } finally {
             btn.disabled = false;
             btn.textContent = 'CREATE ACCOUNT';
+        }
+    });
+}
+
+const resendEmailBtn = document.getElementById('resend-email-btn');
+if (resendEmailBtn) {
+    resendEmailBtn.addEventListener('click', async () => {
+        if (!window.lastSignupEmail) return;
+        resendEmailBtn.disabled = true;
+        resendEmailBtn.textContent = 'Sending...';
+        
+        try {
+            const { error } = await supabaseClient.auth.resend({
+                type: 'signup',
+                email: window.lastSignupEmail,
+                options: {
+                    emailRedirectTo: 'https://file-upload-system-27636.web.app/dashboard.html'
+                }
+            });
+            
+            if (error) {
+                alert(error.message);
+                resendEmailBtn.textContent = 'Resend Verification Email';
+                resendEmailBtn.disabled = false;
+            } else {
+                resendEmailBtn.textContent = 'Verification email sent again! Please check your inbox and spam folder.';
+                // Keep it disabled to prevent spamming
+            }
+        } catch (err) {
+            alert(err.message);
+            resendEmailBtn.textContent = 'Resend Verification Email';
+            resendEmailBtn.disabled = false;
         }
     });
 }
@@ -647,6 +695,7 @@ function showMainApp(user) {
         setupRealtimeSubscription();
         setupProfilePage();
         setupMobileFolders();
+        if (typeof fetchNotifications === 'function') fetchNotifications();
     } else if (IS_PROFILE) {
         setupProfilePage();
     }
@@ -959,19 +1008,24 @@ async function fetchProfile() {
 
         if (error && error.code !== 'PGRST116') throw error;
 
+        let displayName = currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.username || currentUser?.email || 'User';
         if (data) {
-            const displayName = data.full_name || data.username || currentUser.email;
-            const firstName = displayName.split(' ')[0];
-            if (userGreeting) userGreeting.textContent = `Hello, ${displayName}`;
+            displayName = data.full_name || data.username || displayName;
+        }
+        const firstName = (displayName.includes('@') ? displayName.split('@')[0] : displayName).split(' ')[0] || displayName;
 
-            // Update PC welcome card username
-            document.querySelectorAll('.dynamic-username').forEach(el => {
-                el.textContent = firstName;
-            });
+        if (userGreeting) userGreeting.textContent = `Hello, ${displayName}`;
 
-            // ── Mobile greeting & avatar ──
-            const mGreeting = document.getElementById('mobile-greeting-text');
-            if (mGreeting) mGreeting.textContent = `Welcome, ${firstName}!`;
+        // Update PC welcome card username
+        document.querySelectorAll('.dynamic-username').forEach(el => {
+            el.textContent = firstName;
+        });
+
+        // ── Mobile greeting & avatar ──
+        const mGreeting = document.getElementById('mobile-greeting-text');
+        if (mGreeting) mGreeting.textContent = `Welcome, ${firstName}!`;
+
+        if (data) {
             if (data.avatar_url) {
                 if (headerAvatar) headerAvatar.src = data.avatar_url;
                 if (profileAvatarPreview) profileAvatarPreview.src = data.avatar_url;
@@ -983,11 +1037,6 @@ async function fetchProfile() {
                 if (profileUsernameInput) profileUsernameInput.value = data.username || '';
                 if (profileFullnameInput) profileFullnameInput.value = data.full_name || '';
             }
-        } else {
-            const email = currentUser.email;
-            if (userGreeting) userGreeting.textContent = `Hello, ${email}`;
-            const mGreeting = document.getElementById('mobile-greeting-text');
-            if (mGreeting) mGreeting.textContent = `Welcome!`;
         }
 
         if (IS_PROFILE && profileEmailInput) {
@@ -1581,6 +1630,10 @@ function initFilePreviewModal() {
 }
 
 window.shareFile = async function (fileName, url, fileType) {
+    if (window.insertNotification) {
+        const randomCode = Math.floor(1000 + Math.random() * 9000);
+        window.insertNotification('share', 'File Shared', `You shared ${fileName} with code GJS-${randomCode}`);
+    }
     if (isCapacitorApp()) {
         await appShareFile(fileName, url);
         return;
@@ -1876,6 +1929,10 @@ function openUploadModal(files) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('empty-state-upload-btn')?.addEventListener('click', () => {
+        document.getElementById('file-input')?.click();
+    });
+
     document.getElementById('upload-folder-cancel-btn')?.addEventListener('click', () => {
         document.getElementById('upload-folder-modal').classList.add('hidden');
         const fileInput = document.getElementById('file-input');
@@ -2067,6 +2124,10 @@ async function uploadFileToSupabase(file, finalName, folderId = null) {
         progressBar.style.width = '100%';
         uploadText.textContent = 'Upload complete!';
 
+        if (window.insertNotification) {
+            window.insertNotification('upload', 'Upload Complete', `Your file ${file.name} was uploaded`);
+        }
+
     } catch (err) {
         console.error("Error uploading:", err);
         alert(`Failed to upload ${file.name}: ${err.message}`);
@@ -2084,7 +2145,10 @@ async function fetchFiles() {
             .eq('user_id', currentUser.id)
             .order('created_at', { ascending: false });
 
-        if (folderErr && folderErr.code !== '42P01') console.error("Error fetching folders:", folderErr);
+        if (folderErr && folderErr.code !== '42P01') {
+            console.error("Error fetching folders:", folderErr);
+            showToast("Failed to sync folders.", "error");
+        }
         window.folders = folderData || [];
         localStorage.setItem('cached_folders', JSON.stringify(window.folders));
 
@@ -2107,6 +2171,32 @@ async function fetchFiles() {
         const totalCountEl = document.getElementById('total-file-count');
         if (totalCountEl) totalCountEl.textContent = `${window.allFiles.length} files`;
 
+        const hasNoFiles = window.allFiles.length === 0;
+        const emptyState = document.getElementById('new-user-empty-state');
+        const mHomeContent = document.querySelector('.m-home-content');
+        const dHomeContent = document.querySelector('.desktop-home-grid');
+
+        if (hasNoFiles) {
+            const displayName = currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.username || currentUser?.email || 'User';
+            const firstName = (displayName.includes('@') ? displayName.split('@')[0] : displayName).split(' ')[0] || displayName;
+            const welcomeTitle = document.getElementById('empty-state-welcome-title');
+            if (welcomeTitle) welcomeTitle.textContent = `Welcome, ${firstName}!`;
+
+            if (emptyState) {
+                emptyState.classList.remove('hidden');
+                emptyState.style.display = 'flex';
+            }
+            if (mHomeContent) mHomeContent.style.display = 'none';
+            if (dHomeContent) dHomeContent.style.display = 'none';
+        } else {
+            if (emptyState) {
+                emptyState.classList.add('hidden');
+                emptyState.style.display = 'none';
+            }
+            if (mHomeContent) mHomeContent.style.display = '';
+            if (dHomeContent) dHomeContent.style.display = '';
+        }
+
         if (window.renderFolders) window.renderFolders();
         renderRecentFiles();
         renderAllFiles();
@@ -2119,6 +2209,7 @@ async function fetchFiles() {
         renderUploadPageFolders();
     } catch (err) {
         console.error("Error fetching files:", err);
+        showToast("Connection error: Failed to fetch files.", "error");
     }
 }
 
@@ -2202,6 +2293,17 @@ function calculateProfileStats() {
 
     const MAX_BYTES = 100 * 1024 * 1024;
     const pct = Math.min(100, Math.round((totalBytes / MAX_BYTES) * 100));
+    
+    if (window.insertNotification) {
+        if (pct >= 95 && !sessionStorage.getItem('notified_storage_95')) {
+            window.insertNotification('storage', 'Storage Almost Full', 'Your storage is almost full!');
+            sessionStorage.setItem('notified_storage_95', 'true');
+        } else if (pct >= 80 && pct < 95 && !sessionStorage.getItem('notified_storage_80')) {
+            window.insertNotification('storage', 'Storage Warning', `You have used ${pct}% of your storage`);
+            sessionStorage.setItem('notified_storage_80', 'true');
+        }
+    }
+    
     const usedMB = (totalBytes / (1024 * 1024)).toFixed(2);
 
     if (settingsPct) settingsPct.textContent = `${pct}%`;
@@ -2238,7 +2340,10 @@ function updateStorageGauge(usedBytes) {
     const gaugePct = document.getElementById('m-storage-pct');
     const storageText = document.getElementById('m-storage-text');
 
-    if (gaugePath) gaugePath.setAttribute('stroke-dasharray', `${filled.toFixed(1)} ${arcLen}`);
+    if (gaugePath) {
+        gaugePath.setAttribute('stroke-dasharray', `${filled.toFixed(1)} ${arcLen}`);
+        gaugePath.style.opacity = pct === 0 ? '0' : '1';
+    }
     if (gaugePct) gaugePct.textContent = `${pct}%`;
     if (storageText) storageText.textContent = `${usedMB} MB of 100 MB used`;
 }
@@ -2531,7 +2636,21 @@ function renderFileSet(files, container, showCheckboxes) {
             </div>`;
             if (window.lucide) window.lucide.createIcons();
         } else {
-            container.innerHTML = '<p class="empty-state" id="empty-state-msg" style="display: block;">No files yet.</p>';
+            container.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 24px; text-align: center; font-family: 'Poppins', sans-serif; gap: 14px;">
+                <div style="width: 64px; height: 64px; background: rgba(77, 182, 172, 0.1); border-radius: 50%; color: #4DB6AC; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(77, 182, 172, 0.1);">
+                    <i data-lucide="folder-open" style="width: 32px; height: 32px;"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0 0 6px 0;">No files yet</h4>
+                    <p style="font-size: 12px; color: var(--text-muted); margin: 0; font-weight: 500;">Upload your first file to get started.</p>
+                </div>
+                <button onclick="document.getElementById('file-input').click()" style="padding: 10px 20px; border-radius: 12px; background: #4DB6AC; border: none; color: white; font-weight: 700; font-family: 'Poppins', sans-serif; font-size: 13px; cursor: pointer; box-shadow: 0 4px 12px rgba(77,182,172,0.2); display: inline-flex; align-items: center; gap: 6px;">
+                    <i data-lucide="upload-cloud" style="width: 16px; height: 16px;"></i>
+                    Upload File
+                </button>
+            </div>`;
+            if (window.lucide) window.lucide.createIcons();
         }
         return;
     }
@@ -2896,6 +3015,9 @@ window.bulkDeleteFiles = async function () {
             fetchFiles();
         }
         showToast(`${idsToDelete.length} files deleted successfully`);
+        if (window.insertNotification) {
+            window.insertNotification('delete', 'Files Deleted', `${idsToDelete.length} file(s) deleted`);
+        }
     } catch (err) {
         console.error("Error bulk deleting:", err);
         alert("Failed to delete selected files.");
@@ -3122,9 +3244,17 @@ window.renderFolders = function () {
     );
 
     if (currentFolders.length === 0) {
-        foldersGrid.innerHTML = '';
-        foldersGrid.style.display = 'none';
+        foldersGrid.style.display = 'block';
         if (foldersDivider) foldersDivider.style.display = 'none';
+        foldersGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 24px; text-align: center; font-family: 'Poppins', sans-serif; gap: 8px; border: 1.5px dashed rgba(0, 0, 0, 0.08); border-radius: 20px; background: rgba(255, 255, 255, 0.15);">
+            <div style="width: 44px; height: 44px; background: rgba(234, 179, 8, 0.1); border-radius: 50%; color: #eab308; display: flex; align-items: center; justify-content: center; margin-bottom: 4px;">
+                <i data-lucide="folder" style="width: 22px; height: 22px;"></i>
+            </div>
+            <h5 style="font-size: 14px; font-weight: 700; color: var(--text-main); margin: 0;">No folders yet</h5>
+            <p style="font-size: 11px; color: var(--text-muted); margin: 0; font-weight: 500;">Create a folder to keep your files organized.</p>
+        </div>`;
+        if (window.lucide) window.lucide.createIcons();
         return;
     }
 
@@ -3191,6 +3321,10 @@ window.deleteFile = async function (fileId, filePath) {
 
         await fetchFiles();
         showUndoToast(fileId, "File moved to Trash");
+        if (window.insertNotification) {
+            const deletedFileName = filePath ? filePath.split('/').pop() : 'A file';
+            window.insertNotification('delete', 'File Deleted', `${deletedFileName} was deleted`);
+        }
     } catch (err) {
         console.error("Error soft deleting file:", err);
         alert("Failed to delete file.");
@@ -3378,7 +3512,7 @@ window.renderMobileViewFolders = function () {
     const filtered = window.folders.filter(f => f.folder_name.toLowerCase().includes(query));
 
     if (filtered.length === 0) {
-        grid.innerHTML = '<p class="empty-state-text" style="text-align: center; color: #64748b; font-size: 13px;">No folders found</p>';
+        grid.innerHTML = `<p class="empty-state-text" style="text-align: center; color: #64748b; font-size: 13px; font-family: 'Poppins', sans-serif;">${window.folders.length === 0 ? 'No folders yet. Create one to get started.' : 'No folders found'}</p>`;
         return;
     }
 
@@ -4511,7 +4645,210 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 })();
 
+/* ═══ NOTIFICATION SYSTEM ═══ */
 
+window.notifications = [];
 
+async function requestNotificationPermission() {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") return;
+    if (Notification.permission !== "denied") {
+        await Notification.requestPermission();
+    }
+}
 
+// Call on load
+document.addEventListener('DOMContentLoaded', () => {
+    requestNotificationPermission();
+});
 
+window.insertNotification = async function(type, title, message) {
+    if (!currentUser) return;
+    try {
+        const { error } = await supabaseClient
+            .from('notifications')
+            .insert([{
+                user_id: currentUser.id,
+                title: title,
+                message: message,
+                type: type,
+                is_read: false
+            }]);
+        if (error) console.error("Error inserting notification", error);
+        
+        // Push notification for specific types
+        if (type === 'upload' && "Notification" in window && Notification.permission === "granted") {
+            new Notification('Upload Complete', {
+                body: message,
+                icon: '/favicon.png'
+            });
+        }
+        
+        fetchNotifications();
+    } catch(err) {
+        console.error(err);
+    }
+};
+
+async function fetchNotifications() {
+    if (!currentUser) return;
+    try {
+        const { data, error } = await supabaseClient
+            .from('notifications')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+            
+        if (error) throw error;
+        
+        window.notifications = data || [];
+        renderNotifications();
+    } catch(err) {
+        console.error("Error fetching notifications", err);
+    }
+}
+
+window.renderNotifications = function() {
+    const list = document.getElementById('notification-list');
+    const dBadge = document.getElementById('d-notification-badge');
+    const mBadge = document.getElementById('m-notification-badge');
+    
+    if (!list) return;
+    
+    const unreadCount = window.notifications.filter(n => !n.is_read).length;
+    
+    [dBadge, mBadge].forEach(badge => {
+        if (badge) {
+            badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+            if (unreadCount > 0) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+    });
+    
+    if (window.notifications.length === 0) {
+        list.innerHTML = `
+            <div style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
+                <i data-lucide="bell-off" style="width: 32px; height: 32px; margin-bottom: 12px; opacity: 0.5;"></i>
+                <p style="font-size: 13px; margin: 0;">No notifications yet</p>
+            </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+    }
+    
+    list.innerHTML = window.notifications.map(n => {
+        let iconHtml = '';
+        let iconBg = '';
+        let iconColor = '';
+        
+        if (n.type === 'upload') {
+            iconHtml = '<i data-lucide="upload-cloud"></i>';
+            iconBg = 'rgba(16, 185, 129, 0.1)';
+            iconColor = '#10B981';
+        } else if (n.type === 'share') {
+            iconHtml = '<i data-lucide="share-2"></i>';
+            iconBg = 'rgba(59, 130, 246, 0.1)';
+            iconColor = '#3B82F6';
+        } else if (n.type === 'storage') {
+            iconHtml = '<i data-lucide="database"></i>';
+            iconBg = 'rgba(245, 158, 11, 0.1)';
+            iconColor = '#F59E0B';
+        } else if (n.type === 'delete') {
+            iconHtml = '<i data-lucide="trash-2"></i>';
+            iconBg = 'rgba(239, 68, 68, 0.1)';
+            iconColor = '#EF4444';
+        } else if (n.type === 'login') {
+            iconHtml = '<i data-lucide="log-in"></i>';
+            iconBg = 'rgba(139, 92, 246, 0.1)';
+            iconColor = '#8B5CF6';
+        } else {
+            iconHtml = '<i data-lucide="bell"></i>';
+            iconBg = 'rgba(77, 182, 172, 0.1)';
+            iconColor = '#4DB6AC';
+        }
+        
+        const timeStr = new Date(n.created_at).toLocaleString();
+        
+        return `
+            <div class="notification-item ${n.is_read ? '' : 'unread'}" onclick="markNotificationRead('${n.id}')">
+                <div class="notification-icon" style="background: ${iconBg}; color: ${iconColor};">
+                    ${iconHtml}
+                </div>
+                <div class="notification-content">
+                    <h4 class="notification-item-title">${n.title}</h4>
+                    <p class="notification-message">${n.message}</p>
+                    <span class="notification-time">${timeStr}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    if (window.lucide) window.lucide.createIcons();
+}
+
+window.markNotificationRead = async function(id) {
+    try {
+        const n = window.notifications.find(n => n.id === id);
+        if (n && !n.is_read) {
+            n.is_read = true;
+            window.renderNotifications();
+            
+            await supabaseClient
+                .from('notifications')
+                .update({ is_read: true })
+                .eq('id', id);
+        }
+    } catch(err) {
+        console.error("Error marking read", err);
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const dBtn = document.getElementById('d-notification-btn');
+    const mBtn = document.getElementById('m-notification-btn');
+    const dropdown = document.getElementById('notification-dropdown');
+    const markReadBtn = document.getElementById('mark-read-btn');
+    
+    const toggleDropdown = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (dropdown) dropdown.classList.toggle('hidden');
+    };
+    
+    if (dBtn) dBtn.addEventListener('click', toggleDropdown);
+    if (mBtn) mBtn.addEventListener('click', toggleDropdown);
+    
+    if (markReadBtn) {
+        markReadBtn.addEventListener('click', async () => {
+            try {
+                window.notifications.forEach(n => n.is_read = true);
+                window.renderNotifications();
+                await supabaseClient
+                    .from('notifications')
+                    .update({ is_read: true })
+                    .eq('user_id', currentUser.id)
+                    .eq('is_read', false);
+            } catch(err) {
+                console.error(err);
+            }
+        });
+    }
+    
+    document.addEventListener('click', (e) => {
+        if (dropdown && !dropdown.classList.contains('hidden')) {
+            if (!dropdown.contains(e.target) && e.target !== dBtn && e.target !== mBtn && !dBtn?.contains(e.target) && !mBtn?.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        }
+    });
+});
+
+setInterval(() => {
+    if (currentUser) fetchNotifications();
+}, 60000);

@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>GJS File Hub — Your Personal Cloud Storage</title>
+    <meta name="description" content="GJS File Hub is your personal cloud storage solution. Upload, manage and share your files from anywhere. Free, fast, and secure.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://file-upload-system-27636.web.app/landing.html">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <meta name="theme-color" content="#0a0a1a">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://file-upload-system-27636.web.app/landing.html">
+    <meta property="og:title" content="GJS File Hub — Your Personal Cloud Storage">
+    <meta property="og:description" content="Upload, manage and share your files from anywhere. Free, fast, and secure.">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="GJS File Hub — Your Personal Cloud Storage">
+    <meta name="twitter:description" content="Upload, manage and share your files from anywhere. Free, fast, and secure.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <script>
+        // Early app detection (before paint)
+        (function() {
+            const isApp = window.Capacitor !== undefined || navigator.userAgent.includes('wv');
+            if (isApp) document.documentElement.classList.add('is-app');
+        })();
+    </script>
+
+    <style>
+        /* ===== RESET & BASE ===== */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            color: #1e293b;
+            background: #0a0a1a;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a { text-decoration: none; color: inherit; }
+        img { max-width: 100%; display: block; }
+        button { cursor: pointer; border: none; background: none; font-family: inherit; }
+
+        /* ===== CSS VARIABLES ===== */
+        :root {
+            --orange: #ff7b54;
+            --orange-light: #ff9a76;
+            --blue: #38bdf8;
+            --blue-deep: #0284c7;
+            --gradient-brand: linear-gradient(135deg, #ff7b54, #ff9a76, #38bdf8, #0284c7);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-bg-hover: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --section-spacing: 120px;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        /* ===== ANIMATED BACKGROUND ===== */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-glow {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: 0;
+            pointer-events: none;
+            animation: glowDrift 12s ease-in-out infinite alternate;
+        }
+        .bg-glow--orange {
+            width: 600px; height: 600px;
+            background: #ff7b54;
+            top: -10%; left: -5%;
+            opacity: 0.15;
+        }
+        .bg-glow--blue {
+            width: 500px; height: 500px;
+            background: #38bdf8;
+            top: 30%; right: -10%;
+            opacity: 0.12;
+            animation-delay: -4s;
+        }
+        .bg-glow--purple {
+            width: 400px; height: 400px;
+            background: #8b5cf6;
+            bottom: -5%; left: 30%;
+            opacity: 0.08;
+            animation-delay: -8s;
+        }
+
+        @keyframes glowDrift {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, -20px) scale(1.1); }
+        }
+
+        /* ===== NAVIGATION (WEB ONLY) ===== */
+        .nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            padding: 16px 24px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav.scrolled {
+            background: rgba(10, 10, 26, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 12px 24px;
+        }
+        .nav__inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav__brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .nav__logo {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            filter: drop-shadow(0 2px 8px rgba(255, 123, 84, 0.3));
+        }
+        .nav__title {
+            font-size: 1.3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ff7b54, #38bdf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav__links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+        .nav__link {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: color 0.3s;
+            position: relative;
+        }
+        .nav__link::after {
+            content: '';
+            position: absolute;
+            bottom: -4px; left: 0;
+            width: 0; height: 2px;
+            background: linear-gradient(90deg, #ff7b54, #38bdf8);
+            transition: width 0.3s;
+            border-radius: 1px;
+        }
+        .nav__link:hover { color: #fff; }
+        .nav__link:hover::after { width: 100%; }
+
+        .nav__cta {
+            padding: 10px 24px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #ff7b54, #e85d3a);
+            box-shadow: 0 4px 20px rgba(255, 123, 84, 0.3);
+            transition: all 0.3s;
+            letter-spacing: 0.3px;
+        }
+        .nav__cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(255, 123, 84, 0.45);
+        }
+
+        /* Mobile Menu Toggle */
+        .nav__hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            padding: 8px;
+            z-index: 1001;
+        }
+        .nav__hamburger span {
+            width: 24px; height: 2px;
+            background: #fff;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        .nav__hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+        .nav__hamburger.active span:nth-child(2) { opacity: 0; }
+        .nav__hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+        /* ===== HERO SECTION ===== */
+        .hero {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 140px 24px 100px;
+            z-index: 1;
+        }
+        .hero__content {
+            text-align: center;
+            max-width: 800px;
+            position: relative;
+        }
+        .hero__badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            border-radius: 50px;
+            background: rgba(255, 123, 84, 0.1);
+            border: 1px solid rgba(255, 123, 84, 0.2);
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--orange);
+            margin-bottom: 32px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        .hero__badge-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--orange);
+            animation: pulseDot 2s infinite;
+        }
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.5); }
+        }
+
+        .hero__logo {
+            width: 80px; height: 80px;
+            border-radius: 20px;
+            margin: 0 auto 28px;
+            filter: drop-shadow(0 8px 32px rgba(255, 123, 84, 0.3));
+            animation: fadeInUp 0.8s ease-out 0.1s both;
+        }
+
+        .hero__title {
+            font-size: clamp(2.5rem, 6vw, 4.2rem);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -1.5px;
+            margin-bottom: 8px;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+        .hero__title-gradient {
+            background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero__tagline {
+            font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+            font-weight: 600;
+            background: linear-gradient(135deg, #ff7b54, #ff9a76, #38bdf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+            animation: fadeInUp 0.8s ease-out 0.3s both;
+        }
+
+        .hero__subtitle {
+            font-size: clamp(1rem, 1.8vw, 1.15rem);
+            color: var(--text-secondary);
+            line-height: 1.7;
+            max-width: 560px;
+            margin: 0 auto 40px;
+            font-weight: 400;
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+
+        .hero__actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            animation: fadeInUp 0.8s ease-out 0.5s both;
+        }
+
+        /* Floating shapes in hero */
+        .hero__float {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.08;
+            pointer-events: none;
+        }
+        .hero__float--1 {
+            width: 300px; height: 300px;
+            border: 2px solid #ff7b54;
+            top: 10%; left: -5%;
+            animation: floatSlow 20s ease-in-out infinite;
+        }
+        .hero__float--2 {
+            width: 200px; height: 200px;
+            border: 2px solid #38bdf8;
+            bottom: 15%; right: -3%;
+            animation: floatSlow 15s ease-in-out infinite reverse;
+        }
+        .hero__float--3 {
+            width: 120px; height: 120px;
+            background: linear-gradient(135deg, #ff7b5410, #38bdf810);
+            top: 25%; right: 10%;
+            animation: floatSlow 18s ease-in-out infinite;
+        }
+
+        @keyframes floatSlow {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(15px, -20px) rotate(5deg); }
+            50% { transform: translate(-10px, 15px) rotate(-3deg); }
+            75% { transform: translate(20px, 10px) rotate(4deg); }
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 32px;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: 0.2px;
+        }
+        .btn svg {
+            width: 20px; height: 20px;
+            transition: transform 0.3s;
+        }
+        .btn--primary {
+            color: #fff;
+            background: linear-gradient(135deg, #ff7b54, #e85d3a);
+            box-shadow: 0 4px 24px rgba(255, 123, 84, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .btn--primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px rgba(255, 123, 84, 0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .btn--primary:hover svg { transform: translateX(4px); }
+        .btn--primary:active { transform: scale(0.97); }
+
+        .btn--ghost {
+            color: var(--text-secondary);
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(8px);
+        }
+        .btn--ghost:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-3px);
+        }
+        .btn--ghost:active { transform: scale(0.97); }
+
+        /* ===== SECTION DEFAULTS ===== */
+        .section {
+            position: relative;
+            z-index: 1;
+            padding: var(--section-spacing) 24px;
+        }
+        .section__inner {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .section__label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--orange);
+            margin-bottom: 16px;
+        }
+        .section__label-line {
+            width: 24px; height: 2px;
+            background: linear-gradient(90deg, var(--orange), var(--blue));
+            border-radius: 1px;
+        }
+        .section__title {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.2;
+            letter-spacing: -1px;
+            margin-bottom: 16px;
+        }
+        .section__subtitle {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 560px;
+            line-height: 1.7;
+        }
+        .section__header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+        .section__header .section__subtitle {
+            margin: 0 auto;
+        }
+
+        /* ===== FEATURES ===== */
+        .features {
+            background: linear-gradient(180deg, transparent 0%, rgba(255,123,84,0.03) 50%, transparent 100%);
+        }
+        .features__grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .feature-card {
+            position: relative;
+            padding: 36px 28px;
+            border-radius: 20px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 3px;
+            background: linear-gradient(90deg, var(--orange), var(--blue));
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+        .feature-card:hover {
+            background: var(--glass-bg-hover);
+            border-color: rgba(255,255,255,0.14);
+            transform: translateY(-6px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .feature-card:hover::before { opacity: 1; }
+
+        .feature-card__icon {
+            width: 52px; height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .feature-card__icon--orange { background: rgba(255, 123, 84, 0.12); }
+        .feature-card__icon--blue { background: rgba(56, 189, 248, 0.12); }
+        .feature-card__icon--green { background: rgba(16, 185, 129, 0.12); }
+        .feature-card__icon--purple { background: rgba(139, 92, 246, 0.12); }
+        .feature-card__icon--slate { background: rgba(148, 163, 184, 0.12); }
+        .feature-card__icon--yellow { background: rgba(250, 204, 21, 0.12); }
+
+        .feature-card__title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+        .feature-card__desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ===== HOW IT WORKS ===== */
+        .steps__track {
+            display: flex;
+            gap: 32px;
+            position: relative;
+        }
+        .steps__track::before {
+            content: '';
+            position: absolute;
+            top: 44px;
+            left: 80px;
+            right: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--orange), var(--blue-deep));
+            opacity: 0.2;
+        }
+        .step-card {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            padding: 0 12px;
+        }
+        .step-card__number {
+            width: 88px; height: 88px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #fff;
+            position: relative;
+            z-index: 2;
+        }
+        .step-card:nth-child(1) .step-card__number {
+            background: linear-gradient(135deg, #ff7b54, #e85d3a);
+            box-shadow: 0 8px 32px rgba(255, 123, 84, 0.3);
+        }
+        .step-card:nth-child(2) .step-card__number {
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
+        }
+        .step-card:nth-child(3) .step-card__number {
+            background: linear-gradient(135deg, #38bdf8, #0284c7);
+            box-shadow: 0 8px 32px rgba(56, 189, 248, 0.3);
+        }
+        .step-card__title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+        .step-card__desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ===== STATISTICS ===== */
+        .stats {
+            background: linear-gradient(180deg, transparent 0%, rgba(56,189,248,0.03) 50%, transparent 100%);
+        }
+        .stats__grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 40px 20px;
+            border-radius: 20px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            transition: all 0.4s;
+        }
+        .stat-card:hover {
+            background: var(--glass-bg-hover);
+            transform: translateY(-4px);
+            border-color: rgba(255,255,255,0.14);
+        }
+        .stat-card__icon {
+            font-size: 2rem;
+            margin-bottom: 16px;
+            display: block;
+        }
+        .stat-card__value {
+            font-size: clamp(1.8rem, 3vw, 2.4rem);
+            font-weight: 900;
+            margin-bottom: 6px;
+            line-height: 1;
+        }
+        .stat-card:nth-child(1) .stat-card__value {
+            background: linear-gradient(135deg, #ff7b54, #ff9a76);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-card:nth-child(2) .stat-card__value {
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-card:nth-child(3) .stat-card__value {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-card:nth-child(4) .stat-card__value {
+            background: linear-gradient(135deg, #38bdf8, #0284c7);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-card__label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* ===== DEVELOPER ===== */
+        .developer__card {
+            max-width: 640px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 56px 40px;
+            border-radius: 24px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+        }
+        .developer__card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--orange), var(--blue));
+        }
+        .developer__avatar {
+            width: 96px; height: 96px;
+            border-radius: 50%;
+            margin: 0 auto 24px;
+            background: linear-gradient(135deg, #ff7b54, #38bdf8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #fff;
+            box-shadow: 0 8px 32px rgba(255, 123, 84, 0.25);
+            position: relative;
+        }
+        .developer__avatar::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+        .developer__name {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+        .developer__role {
+            font-size: 1rem;
+            color: var(--orange);
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .developer__bio {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            max-width: 420px;
+            margin: 0 auto 24px;
+        }
+        .developer__tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            border-radius: 50px;
+            background: rgba(255, 123, 84, 0.1);
+            border: 1px solid rgba(255, 123, 84, 0.15);
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--orange-light);
+        }
+
+        /* ===== CTA BANNER ===== */
+        .cta-banner {
+            position: relative;
+            z-index: 1;
+            padding: 100px 24px;
+        }
+        .cta-banner__inner {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 64px 40px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, rgba(255,123,84,0.12), rgba(56,189,248,0.08));
+            border: 1px solid rgba(255,255,255,0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        .cta-banner__inner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 30% 50%, rgba(255,123,84,0.08), transparent 60%);
+            pointer-events: none;
+        }
+        .cta-banner__title {
+            font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+            position: relative;
+        }
+        .cta-banner__desc {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.7;
+            position: relative;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            position: relative;
+            z-index: 1;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding: 48px 24px;
+        }
+        .footer__inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 24px;
+        }
+        .footer__brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .footer__logo {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+        }
+        .footer__name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff7b54, #38bdf8);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .footer__links {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+        .footer__link {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            transition: color 0.3s;
+            font-weight: 500;
+        }
+        .footer__link:hover { color: var(--text-secondary); }
+        .footer__copy {
+            width: 100%;
+            text-align: center;
+            padding-top: 24px;
+            margin-top: 24px;
+            border-top: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .reveal-delay-1 { transition-delay: 0.1s; }
+        .reveal-delay-2 { transition-delay: 0.2s; }
+        .reveal-delay-3 { transition-delay: 0.3s; }
+        .reveal-delay-4 { transition-delay: 0.4s; }
+        .reveal-delay-5 { transition-delay: 0.5s; }
+
+
+        /* ================================================================
+           ===== APP-ONLY ONBOARDING OVERLAY =====
+           Shows a swipeable onboarding experience inside Capacitor app
+           ================================================================ */
+        .app-onboarding {
+            display: none;
+        }
+
+        /* ===== WEB RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .features__grid { grid-template-columns: repeat(2, 1fr); }
+            .stats__grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            :root { --section-spacing: 80px; }
+
+            .nav__links { display: none; }
+            .nav__links.active {
+                display: flex;
+                flex-direction: column;
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(10, 10, 26, 0.97);
+                backdrop-filter: blur(20px);
+                justify-content: center;
+                align-items: center;
+                gap: 28px;
+                z-index: 999;
+            }
+            .nav__links.active .nav__link { font-size: 1.2rem; }
+            .nav__hamburger { display: flex; }
+
+            .hero { padding: 120px 20px 80px; }
+            .hero__logo { width: 64px; height: 64px; border-radius: 16px; }
+            .hero__subtitle { font-size: 0.95rem; }
+
+            .btn { padding: 14px 24px; font-size: 0.9rem; width: 100%; justify-content: center; }
+            .hero__actions { flex-direction: column; width: 100%; max-width: 320px; margin: 0 auto; }
+
+            .features__grid { grid-template-columns: 1fr; }
+
+            .steps__track { flex-direction: column; gap: 40px; }
+            .steps__track::before {
+                top: 44px; bottom: 44px;
+                left: 50%; right: auto;
+                width: 2px; height: auto;
+            }
+            .step-card__number { width: 72px; height: 72px; font-size: 1.5rem; }
+
+            .stats__grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+            .stat-card { padding: 28px 16px; }
+
+            .developer__card { padding: 40px 24px; }
+
+            .cta-banner__inner { padding: 48px 24px; }
+
+            .footer__inner { flex-direction: column; text-align: center; }
+            .footer__links { flex-wrap: wrap; justify-content: center; }
+        }
+
+        @media (max-width: 480px) {
+            .stat-card__value { font-size: 1.6rem; }
+        }
+
+
+        /* ================================================================
+           ===== APP MODE STYLES (Capacitor / WebView) =====
+           ================================================================ */
+        html.is-app .web-only { display: none !important; }
+        html.is-app .app-only { display: flex !important; }
+
+        html.is-app body {
+            overflow: hidden;
+        }
+
+        /* Hide web sections in app */
+        html.is-app .nav,
+        html.is-app .hero,
+        html.is-app .section,
+        html.is-app .cta-banner,
+        html.is-app .footer,
+        html.is-app .bg-grid,
+        html.is-app .bg-glow {
+            display: none !important;
+        }
+
+        /* Show app onboarding */
+        html.is-app .app-onboarding {
+            display: flex !important;
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            flex-direction: column;
+            background: #0a0a1a;
+            overflow: hidden;
+            padding-top: var(--safe-top);
+            padding-bottom: var(--safe-bottom);
+        }
+
+        /* Onboarding Background */
+        .onb-bg {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .onb-bg__circle {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .onb-bg__circle--1 {
+            width: 300px; height: 300px;
+            background: #ff7b54;
+            opacity: 0.18;
+            top: -80px; left: -60px;
+        }
+        .onb-bg__circle--2 {
+            width: 250px; height: 250px;
+            background: #38bdf8;
+            opacity: 0.12;
+            bottom: -50px; right: -60px;
+        }
+        .onb-bg__circle--3 {
+            width: 200px; height: 200px;
+            background: #8b5cf6;
+            opacity: 0.08;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Slide container */
+        .onb-slides {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            touch-action: pan-y;
+        }
+        .onb-slide {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 32px;
+            text-align: center;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+        .onb-slide.active {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+        .onb-slide.exit-left {
+            opacity: 0;
+            transform: translateX(-100%);
+        }
+
+        .onb-slide__icon {
+            width: 140px; height: 140px;
+            border-radius: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            margin-bottom: 36px;
+            position: relative;
+            animation: fadeInScale 0.6s ease-out 0.2s both;
+        }
+        .onb-slide__icon::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 40px;
+            border: 2px solid rgba(255,255,255,0.06);
+        }
+        .onb-slide__icon--1 {
+            background: linear-gradient(135deg, rgba(255,123,84,0.15), rgba(255,123,84,0.05));
+            box-shadow: 0 16px 48px rgba(255,123,84,0.15);
+        }
+        .onb-slide__icon--2 {
+            background: linear-gradient(135deg, rgba(56,189,248,0.15), rgba(56,189,248,0.05));
+            box-shadow: 0 16px 48px rgba(56,189,248,0.15);
+        }
+        .onb-slide__icon--3 {
+            background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(139,92,246,0.05));
+            box-shadow: 0 16px 48px rgba(139,92,246,0.15);
+        }
+        .onb-slide__icon--4 {
+            background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05));
+            box-shadow: 0 16px 48px rgba(16,185,129,0.15);
+        }
+
+        .onb-slide__title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 14px;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+        }
+        .onb-slide__title span {
+            background: linear-gradient(135deg, #ff7b54, #38bdf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .onb-slide__desc {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            max-width: 320px;
+        }
+
+        /* Onboarding Bottom */
+        .onb-bottom {
+            position: relative;
+            padding: 24px 32px 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            z-index: 2;
+        }
+
+        /* Dots */
+        .onb-dots {
+            display: flex;
+            gap: 10px;
+        }
+        .onb-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            transition: all 0.4s;
+        }
+        .onb-dot.active {
+            width: 28px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #ff7b54, #38bdf8);
+        }
+
+        /* Onboarding buttons */
+        .onb-actions {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+        }
+        .onb-btn {
+            flex: 1;
+            padding: 16px 24px;
+            border-radius: 16px;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .onb-btn--skip {
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .onb-btn--skip:active {
+            background: rgba(255,255,255,0.08);
+            transform: scale(0.97);
+        }
+        .onb-btn--next {
+            color: #fff;
+            background: linear-gradient(135deg, #ff7b54, #e85d3a);
+            box-shadow: 0 4px 24px rgba(255,123,84,0.35);
+            flex: 2;
+        }
+        .onb-btn--next:active {
+            transform: scale(0.97);
+        }
+        .onb-btn--start {
+            color: #fff;
+            background: linear-gradient(135deg, #ff7b54, #e85d3a);
+            box-shadow: 0 4px 24px rgba(255,123,84,0.35);
+            width: 100%;
+            padding: 18px;
+            font-size: 1.05rem;
+        }
+        .onb-btn--start:active {
+            transform: scale(0.97);
+        }
+
+        /* Feature pills in onboarding */
+        .onb-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .onb-pill {
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Effects (Web) -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow--orange"></div>
+    <div class="bg-glow bg-glow--blue"></div>
+    <div class="bg-glow bg-glow--purple"></div>
+
+    <!-- ============================================================
+         WEB VERSION: Full Landing Page
+         ============================================================ -->
+
+    <!-- Navigation -->
+    <nav class="nav web-only" id="navbar">
+        <div class="nav__inner">
+            <a href="landing.html" class="nav__brand" id="nav-brand">
+                <img src="/favicon.png" alt="GJS File Hub Logo" class="nav__logo">
+                <span class="nav__title">GJS File Hub</span>
+            </a>
+            <div class="nav__links" id="nav-links">
+                <a href="#features" class="nav__link" id="nav-features">Features</a>
+                <a href="#how-it-works" class="nav__link" id="nav-how-it-works">How It Works</a>
+                <a href="#stats" class="nav__link" id="nav-stats">Stats</a>
+                <a href="#developer" class="nav__link" id="nav-developer">Developer</a>
+                <a href="index.html" class="nav__cta" id="nav-get-started">Get Started</a>
+            </div>
+            <button class="nav__hamburger" id="hamburger" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero web-only" id="hero">
+        <div class="hero__float hero__float--1"></div>
+        <div class="hero__float hero__float--2"></div>
+        <div class="hero__float hero__float--3"></div>
+        <div class="hero__content">
+            <div class="hero__badge">
+                <span class="hero__badge-dot"></span>
+                Now available on Android
+            </div>
+            <img src="/favicon.png" alt="GJS File Hub Logo" class="hero__logo">
+            <h1 class="hero__title">
+                <span class="hero__title-gradient">GJS File Hub</span>
+            </h1>
+            <p class="hero__tagline">Your Personal Cloud Storage</p>
+            <p class="hero__subtitle">Upload, manage and share your files from anywhere. Fast, secure, and completely free to use.</p>
+            <div class="hero__actions">
+                <a href="index.html" class="btn btn--primary" id="hero-cta-start">
+                    Get Started Free
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </a>
+                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" class="btn btn--ghost" id="hero-cta-demo">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Watch Demo
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="section features web-only" id="features">
+        <div class="section__inner">
+            <div class="section__header reveal">
+                <div class="section__label">
+                    <span class="section__label-line"></span>
+                    Features
+                </div>
+                <h2 class="section__title">Everything You Need</h2>
+                <p class="section__subtitle">Powerful features to help you manage, organize, and share your files effortlessly.</p>
+            </div>
+            <div class="features__grid">
+                <div class="feature-card reveal reveal-delay-1" id="feature-secure">
+                    <div class="feature-card__icon feature-card__icon--orange">🔒</div>
+                    <h3 class="feature-card__title">Secure File Storage</h3>
+                    <p class="feature-card__desc">Your files are protected with enterprise-grade security. Upload with confidence knowing your data is safe.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-2" id="feature-sharing">
+                    <div class="feature-card__icon feature-card__icon--blue">🔗</div>
+                    <h3 class="feature-card__title">Easy File Sharing</h3>
+                    <p class="feature-card__desc">Share files with anyone using shareable links. Control who can access your files with simple permissions.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-3" id="feature-folders">
+                    <div class="feature-card__icon feature-card__icon--green">📁</div>
+                    <h3 class="feature-card__title">Folder Organization</h3>
+                    <p class="feature-card__desc">Create folders and organize your files the way you want. Keep everything structured and easy to find.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-1" id="feature-mobile">
+                    <div class="feature-card__icon feature-card__icon--purple">📱</div>
+                    <h3 class="feature-card__title">Mobile App Available</h3>
+                    <p class="feature-card__desc">Access your files on the go with our Android app. Your cloud storage, right in your pocket.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-2" id="feature-darkmode">
+                    <div class="feature-card__icon feature-card__icon--slate">🌙</div>
+                    <h3 class="feature-card__title">Dark Mode Support</h3>
+                    <p class="feature-card__desc">Easy on the eyes with a beautiful dark theme. Switch between light and dark modes effortlessly.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-3" id="feature-speed">
+                    <div class="feature-card__icon feature-card__icon--yellow">⚡</div>
+                    <h3 class="feature-card__title">Lightning Fast Upload</h3>
+                    <p class="feature-card__desc">Upload your files in seconds with our optimized upload engine. No more waiting around.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="section web-only" id="how-it-works">
+        <div class="section__inner">
+            <div class="section__header reveal">
+                <div class="section__label">
+                    <span class="section__label-line"></span>
+                    Simple Process
+                </div>
+                <h2 class="section__title">How It Works</h2>
+                <p class="section__subtitle">Get started in three simple steps. No credit card required, no complicated setup.</p>
+            </div>
+            <div class="steps__track">
+                <div class="step-card reveal reveal-delay-1" id="step-1">
+                    <div class="step-card__number">1</div>
+                    <h3 class="step-card__title">Create Free Account</h3>
+                    <p class="step-card__desc">Sign up with your email or Google account in seconds. It's completely free.</p>
+                </div>
+                <div class="step-card reveal reveal-delay-2" id="step-2">
+                    <div class="step-card__number">2</div>
+                    <h3 class="step-card__title">Upload Your Files</h3>
+                    <p class="step-card__desc">Drag and drop or browse to upload. Supports all file types up to 100 MB.</p>
+                </div>
+                <div class="step-card reveal reveal-delay-3" id="step-3">
+                    <div class="step-card__number">3</div>
+                    <h3 class="step-card__title">Access Anywhere</h3>
+                    <p class="step-card__desc">Access your files from any device, anytime. Share with friends and colleagues.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Statistics Section -->
+    <section class="section stats web-only" id="stats">
+        <div class="section__inner">
+            <div class="section__header reveal">
+                <div class="section__label">
+                    <span class="section__label-line"></span>
+                    By The Numbers
+                </div>
+                <h2 class="section__title">Built for Everyone</h2>
+                <p class="section__subtitle">Generous limits and powerful features — all completely free.</p>
+            </div>
+            <div class="stats__grid">
+                <div class="stat-card reveal reveal-delay-1" id="stat-storage">
+                    <span class="stat-card__icon">☁️</span>
+                    <div class="stat-card__value">150 GB</div>
+                    <div class="stat-card__label">Storage Available</div>
+                </div>
+                <div class="stat-card reveal reveal-delay-2" id="stat-filesize">
+                    <span class="stat-card__icon">📦</span>
+                    <div class="stat-card__value">100 MB</div>
+                    <div class="stat-card__label">Max File Size</div>
+                </div>
+                <div class="stat-card reveal reveal-delay-3" id="stat-free">
+                    <span class="stat-card__icon">✅</span>
+                    <div class="stat-card__value">100%</div>
+                    <div class="stat-card__label">Free to Use</div>
+                </div>
+                <div class="stat-card reveal reveal-delay-4" id="stat-android">
+                    <span class="stat-card__icon">📲</span>
+                    <div class="stat-card__value">Android</div>
+                    <div class="stat-card__label">App Available</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Developer Section -->
+    <section class="section web-only" id="developer">
+        <div class="section__inner">
+            <div class="section__header reveal">
+                <div class="section__label">
+                    <span class="section__label-line"></span>
+                    The Creator
+                </div>
+                <h2 class="section__title">Meet the Developer</h2>
+            </div>
+            <div class="developer__card reveal">
+                <div class="developer__avatar">GS</div>
+                <h3 class="developer__name">G. Srinivas</h3>
+                <p class="developer__role">Full Stack Developer</p>
+                <p class="developer__bio">First Year Computer Science student with a passion for building useful products. GJS File Hub was built from scratch with love and dedication.</p>
+                <div class="developer__tag">
+                    ❤️ Made with passion
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Banner -->
+    <section class="cta-banner web-only">
+        <div class="cta-banner__inner reveal">
+            <h2 class="cta-banner__title">Ready to Get Started?</h2>
+            <p class="cta-banner__desc">Join GJS File Hub today and experience the simplest way to store and share your files.</p>
+            <a href="index.html" class="btn btn--primary" id="cta-final-start">
+                Start Uploading — It's Free
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer web-only" id="footer">
+        <div class="footer__inner">
+            <div class="footer__brand">
+                <img src="/favicon.png" alt="GJS File Hub" class="footer__logo">
+                <span class="footer__name">GJS File Hub</span>
+            </div>
+            <div class="footer__links">
+                <a href="#" class="footer__link" id="footer-privacy">Privacy Policy</a>
+                <a href="#" class="footer__link" id="footer-terms">Terms of Service</a>
+                <a href="mailto:srinivas.gjs@gmail.com" class="footer__link" id="footer-contact">Contact</a>
+            </div>
+            <div class="footer__copy">
+                &copy; 2026 GJS File Hub. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- ============================================================
+         APP VERSION: Swipeable Onboarding Experience
+         ============================================================ -->
+    <div class="app-onboarding" id="app-onboarding">
+        <!-- Animated BG -->
+        <div class="onb-bg">
+            <div class="onb-bg__circle onb-bg__circle--1"></div>
+            <div class="onb-bg__circle onb-bg__circle--2"></div>
+            <div class="onb-bg__circle onb-bg__circle--3"></div>
+        </div>
+
+        <!-- Slides -->
+        <div class="onb-slides" id="onb-slides">
+            <!-- Slide 1: Welcome -->
+            <div class="onb-slide active" data-slide="0">
+                <div class="onb-slide__icon onb-slide__icon--1">
+                    <img src="/favicon.png" alt="GJS File Hub" style="width:80px;height:80px;border-radius:18px;filter:drop-shadow(0 4px 16px rgba(255,123,84,0.3));">
+                </div>
+                <h2 class="onb-slide__title">Welcome to<br><span>GJS File Hub</span></h2>
+                <p class="onb-slide__desc">Your personal cloud storage. Upload, manage, and share your files from anywhere.</p>
+            </div>
+
+            <!-- Slide 2: Features -->
+            <div class="onb-slide" data-slide="1">
+                <div class="onb-slide__icon onb-slide__icon--2">☁️</div>
+                <h2 class="onb-slide__title">Powerful<br><span>Cloud Storage</span></h2>
+                <p class="onb-slide__desc">150 GB free storage with support for all file types. Organize with folders and share instantly.</p>
+                <div class="onb-pills">
+                    <span class="onb-pill">🔒 Secure</span>
+                    <span class="onb-pill">⚡ Fast</span>
+                    <span class="onb-pill">📁 Organized</span>
+                    <span class="onb-pill">🌙 Dark Mode</span>
+                </div>
+            </div>
+
+            <!-- Slide 3: Share -->
+            <div class="onb-slide" data-slide="2">
+                <div class="onb-slide__icon onb-slide__icon--3">🔗</div>
+                <h2 class="onb-slide__title">Share Files<br><span>With Anyone</span></h2>
+                <p class="onb-slide__desc">Generate shareable links and send files to friends, classmates, or colleagues in one tap.</p>
+            </div>
+
+            <!-- Slide 4: Get Started -->
+            <div class="onb-slide" data-slide="3">
+                <div class="onb-slide__icon onb-slide__icon--4">🚀</div>
+                <h2 class="onb-slide__title">Ready to<br><span>Get Started?</span></h2>
+                <p class="onb-slide__desc">Create your free account and start uploading files right away. No credit card needed.</p>
+            </div>
+        </div>
+
+        <!-- Bottom controls -->
+        <div class="onb-bottom">
+            <div class="onb-dots" id="onb-dots">
+                <div class="onb-dot active" data-dot="0"></div>
+                <div class="onb-dot" data-dot="1"></div>
+                <div class="onb-dot" data-dot="2"></div>
+                <div class="onb-dot" data-dot="3"></div>
+            </div>
+            <div class="onb-actions" id="onb-actions">
+                <button class="onb-btn onb-btn--skip" id="onb-skip">Skip</button>
+                <button class="onb-btn onb-btn--next" id="onb-next">Next</button>
+            </div>
+            <div class="onb-actions" id="onb-start-wrap" style="display:none;">
+                <button class="onb-btn onb-btn--start" id="onb-start">Get Started Free →</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // ===== Detect App vs Web =====
+        const isApp = document.documentElement.classList.contains('is-app');
+
+        if (!isApp) {
+            // ===================================================
+            // WEB VERSION LOGIC
+            // ===================================================
+
+            // Navbar scroll effect
+            const navbar = document.getElementById('navbar');
+            window.addEventListener('scroll', () => {
+                navbar.classList.toggle('scrolled', window.scrollY > 50);
+            });
+
+            // Mobile menu
+            const hamburger = document.getElementById('hamburger');
+            const navLinks = document.getElementById('nav-links');
+            hamburger.addEventListener('click', () => {
+                hamburger.classList.toggle('active');
+                navLinks.classList.toggle('active');
+            });
+            navLinks.querySelectorAll('.nav__link').forEach(link => {
+                link.addEventListener('click', () => {
+                    hamburger.classList.remove('active');
+                    navLinks.classList.remove('active');
+                });
+            });
+
+            // Scroll reveal
+            const revealElements = document.querySelectorAll('.reveal');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+            revealElements.forEach(el => observer.observe(el));
+
+            // Smooth scroll for anchor links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const target = document.querySelector(anchor.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            });
+
+            // Counter animation for stats
+            const animateCounters = () => {
+                const statValues = document.querySelectorAll('.stat-card__value');
+                statValues.forEach(el => {
+                    const text = el.textContent;
+                    if (el.dataset.animated) return;
+                    const num = parseInt(text);
+                    if (isNaN(num)) return;
+                    el.dataset.animated = 'true';
+                    const suffix = text.replace(/[0-9]/g, '').trim();
+                    let current = 0;
+                    const step = Math.ceil(num / 40);
+                    const timer = setInterval(() => {
+                        current += step;
+                        if (current >= num) {
+                            current = num;
+                            clearInterval(timer);
+                        }
+                        el.textContent = current + (suffix ? ' ' + suffix : '');
+                    }, 30);
+                });
+            };
+
+            const statsSection = document.getElementById('stats');
+            const statsObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        setTimeout(animateCounters, 400);
+                        statsObserver.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.3 });
+            statsObserver.observe(statsSection);
+
+        } else {
+            // ===================================================
+            // APP VERSION LOGIC: Swipeable Onboarding
+            // ===================================================
+
+            let currentSlide = 0;
+            const totalSlides = 4;
+            const slides = document.querySelectorAll('.onb-slide');
+            const dots = document.querySelectorAll('.onb-dot');
+            const nextBtn = document.getElementById('onb-next');
+            const skipBtn = document.getElementById('onb-skip');
+            const startBtn = document.getElementById('onb-start');
+            const actionsWrap = document.getElementById('onb-actions');
+            const startWrap = document.getElementById('onb-start-wrap');
+            const slidesContainer = document.getElementById('onb-slides');
+
+            function goToSlide(index) {
+                slides.forEach((s, i) => {
+                    s.classList.remove('active', 'exit-left');
+                    if (i < index) s.classList.add('exit-left');
+                    if (i === index) s.classList.add('active');
+                });
+                dots.forEach((d, i) => {
+                    d.classList.toggle('active', i === index);
+                });
+
+                // Update BG circles based on slide
+                const circles = document.querySelectorAll('.onb-bg__circle');
+                const colors = [
+                    ['#ff7b54', '#38bdf8', '#8b5cf6'],
+                    ['#38bdf8', '#0284c7', '#ff7b54'],
+                    ['#8b5cf6', '#ff7b54', '#38bdf8'],
+                    ['#10b981', '#38bdf8', '#ff7b54']
+                ];
+                circles.forEach((c, i) => {
+                    c.style.background = colors[index][i];
+                });
+
+                // Show Get Started on last slide
+                if (index === totalSlides - 1) {
+                    actionsWrap.style.display = 'none';
+                    startWrap.style.display = 'flex';
+                } else {
+                    actionsWrap.style.display = 'flex';
+                    startWrap.style.display = 'none';
+                }
+
+                currentSlide = index;
+            }
+
+            nextBtn.addEventListener('click', () => {
+                if (currentSlide < totalSlides - 1) goToSlide(currentSlide + 1);
+            });
+
+            skipBtn.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+
+            startBtn.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+
+            // Touch/swipe support
+            let touchStartX = 0;
+            let touchEndX = 0;
+
+            slidesContainer.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, { passive: true });
+
+            slidesContainer.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                const diff = touchStartX - touchEndX;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0 && currentSlide < totalSlides - 1) {
+                        goToSlide(currentSlide + 1); // swipe left → next
+                    } else if (diff < 0 && currentSlide > 0) {
+                        goToSlide(currentSlide - 1); // swipe right → prev
+                    }
+                }
+            }, { passive: true });
+
+            // Dot click
+            dots.forEach(dot => {
+                dot.addEventListener('click', () => {
+                    goToSlide(parseInt(dot.dataset.dot));
+                });
+            });
+        }
+    </script>
+</body>
+</html>

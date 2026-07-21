@@ -12,6 +12,19 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/icon-192.png">
     <meta name="theme-color" content="#4DB6AC">
+    <style>
+        html {
+            background: #FF6B35;
+        }
+        body {
+            background: linear-gradient(135deg, #FF6B35, #1565C0);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        body.loaded {
+            opacity: 1;
+        }
+    </style>
 </head>
 <body>
     <script>
@@ -77,6 +90,10 @@
                         <img id="header-avatar" src="https://via.placeholder.com/32" alt="Avatar" class="header-avatar-small">
                         <span id="user-greeting"></span>
                     </div>
+                    <button id="d-notification-btn" class="icon-btn outline-btn notification-btn" title="Notifications" style="position: relative;">
+                        <i data-lucide="bell"></i>
+                        <span class="notification-badge hidden" id="d-notification-badge">0</span>
+                    </button>
                     <button id="theme-toggle-btn" class="icon-btn outline-btn" title="Toggle Theme"><i data-lucide="moon"></i></button>
                     <button id="logout-btn" class="icon-btn outline-btn" title="Log Out"><i data-lucide="log-out"></i></button>
                 </div>
@@ -89,9 +106,13 @@
                     <span class="m-brand-text">FileHub</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <a href="download.html" class="m-download-app-btn" title="Download App">
+                    <a href="https://github.com/srinivas-2898/filehub/releases/download/v1.0/GJS.File.Hub.apk" class="m-download-app-btn" title="Download App">
                         📱 <span class="btn-text-full">Download App</span><span class="btn-text-short">App</span>
                     </a>
+                    <button id="m-notification-btn" class="icon-btn outline-btn notification-btn" style="width: 38px; height: 38px; border-radius: 50%; position: relative;" title="Notifications">
+                        <i data-lucide="bell" style="width: 18px; height: 18px;"></i>
+                        <span class="notification-badge hidden" id="m-notification-badge">0</span>
+                    </button>
                     <button id="m-theme-toggle-btn" class="icon-btn outline-btn" style="width: 38px; height: 38px; border-radius: 50%;" title="Toggle Theme">
                         <i data-lucide="moon" style="width: 18px; height: 18px;"></i>
                     </button>
@@ -127,6 +148,17 @@
                     <span>Settings</span>
                 </button>
             </nav>
+
+            <!-- ═══ NOTIFICATION DROPDOWN ═══ -->
+            <div id="notification-dropdown" class="notification-dropdown hidden">
+                <div class="notification-header">
+                    <h3 class="notification-title">Notifications</h3>
+                    <button id="mark-read-btn" class="mark-read-btn">Mark all as read</button>
+                </div>
+                <div id="notification-list" class="notification-list">
+                    <!-- Notifications injected here -->
+                </div>
+            </div>
 
             <main class="app-main">
                 <!-- Offline Banner -->
@@ -393,6 +425,21 @@
                             </div>
 
                         </div><!-- /desktop-only -->
+
+                        <!-- Beautiful empty state container for new user with no files -->
+                        <div id="new-user-empty-state" class="glass-panel hidden" style="padding: 60px 24px; text-align: center; border-radius: 28px; margin: 20px auto; max-width: 500px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; box-shadow: var(--glass-shadow); border: 1px solid var(--glass-border); background: var(--bg-card);">
+                            <div style="width: 80px; height: 80px; background: rgba(77, 182, 172, 0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4DB6AC; box-shadow: 0 8px 24px rgba(77,182,172,0.15);">
+                                <i data-lucide="cloud-lightning" style="width: 40px; height: 40px;"></i>
+                            </div>
+                            <h2 style="font-size: 24px; font-weight: 800; color: var(--text-main); font-family: 'Poppins', sans-serif;" id="empty-state-welcome-title">Welcome!</h2>
+                            <p style="font-size: 14px; color: var(--text-muted); font-weight: 500; line-height: 1.6; font-family: 'Poppins', sans-serif; max-width: 320px; margin: 0;">
+                                Welcome to GJS File Hub!<br>Start by uploading your first file
+                            </p>
+                            <button id="empty-state-upload-btn" style="width: auto; padding: 14px 28px; border-radius: 16px; background: linear-gradient(135deg, #4DB6AC, #26C6DA); border: none; color: white; font-weight: 700; font-family: 'Poppins', sans-serif; font-size: 14px; box-shadow: 0 8px 20px rgba(77,182,172,0.3); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;">
+                                <i data-lucide="upload-cloud" style="width: 18px; height: 18px;"></i>
+                                Upload File
+                            </button>
+                        </div>
 
                         <!-- Shared hidden file input (works even when parent is display:none) -->
                         <input type="file" id="file-input" style="display:none;" multiple>
