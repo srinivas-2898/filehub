@@ -4666,7 +4666,7 @@ window.insertNotification = async function(type, title, message) {
     if (!currentUser) return;
     try {
         const { error } = await supabaseClient
-            .from('notifications')
+            .from('notification')
             .insert([{
                 user_id: currentUser.id,
                 title: title,
@@ -4694,7 +4694,7 @@ async function fetchNotifications() {
     if (!currentUser) return;
     try {
         const { data, error } = await supabaseClient
-            .from('notifications')
+            .from('notification')
             .select('*')
             .eq('user_id', currentUser.id)
             .order('created_at', { ascending: false })
@@ -4798,7 +4798,7 @@ window.markNotificationRead = async function(id) {
             window.renderNotifications();
             
             await supabaseClient
-                .from('notifications')
+                .from('notification')
                 .update({ is_read: true })
                 .eq('id', id);
         }
@@ -4830,7 +4830,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.notifications.forEach(n => n.is_read = true);
                 window.renderNotifications();
                 await supabaseClient
-                    .from('notifications')
+                    .from('notification')
                     .update({ is_read: true })
                     .eq('user_id', currentUser.id)
                     .eq('is_read', false);
